@@ -135,6 +135,62 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [countdown, setCountdown] = useState(null);
+  const [pollingStatus, setPollingStatus] = useState('idle');
+
+  // Polling para recordatorios por minuto
+  useEffect(() => {
+    let interval;
+    let countdownInterval;
+
+    async function processMinuteReminders() {
+      try {
+        setPollingStatus('checking');
+        const res = await fetch('/api/cron/process-minute-reminders');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        if (data.sent > 0) {
+          toast.success(`${data.sent} recordatorio(s) enviado(s)`);
+          loadVisits();
+        }
+
+        // Actualizar countdown
+        if (data.nextReminders && data.nextReminders.length > 0) {
+          const nearest = data.nextReminders.reduce((min, r) => 
+            r.secondsUntilReminder < min.secondsUntilReminder ? r : min
+          );
+          setCountdown(nearest);
+        } else {
+          setCountdown(null);
+        }
+        
+        setPollingStatus(data.sent > 0 ? 'sent' : 'idle');
+      } catch (error) {
+        setPollingStatus('idle');
+      }
+    }
+
+    // Countdown regresivo
+    function updateCountdown() {
+      if (countdown && countdown.secondsUntilReminder > 0) {
+        setCountdown(prev => ({
+          ...prev,
+          secondsUntilReminder: prev.secondsUntilReminder - 1
+        }));
+      }
+    }
+
+    // Revisar cada 10 segundos
+    processMinuteReminders(); // Inmediato al cargar
+    interval = setInterval(processMinuteReminders, 10000);
+    countdownInterval = setInterval(updateCountdown, 1000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(countdownInterval);
+    };
+  }, []);
 
   // Estadísticas
   const stats = useMemo(() => {
@@ -335,6 +391,35 @@ export default function DashboardClient({ username, initialVisits = [] }) {
             subtitle="Requieren reagenda"
           />
         </div>
+
+        {/* Indicador de próximos recordatorios */}
+        {countdown && (
+          <div className="mb-6 glass-card rounded-xl p-4 border border-amber-200/50 bg-amber-50/50 dark:bg-amber-900/10 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    Próximo recordatorio por minuto
+                  </p>
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    {countdown.name} - ({countdown.type})
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold text-amber-700 dark:text-amber-200 tabular-nums">
+                  {countdown.secondsUntilReminder > 60
+                    ? `${Math.floor(countdown.secondsUntilReminder / 60)}m ${countdown.secondsUntilReminder % 60}s`
+                    : `${countdown.secondsUntilReminder}s`}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  para enviar recordatorio
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Formulario de registro colapsable */}
         <Card className="glass-card mb-8 overflow-hidden">
