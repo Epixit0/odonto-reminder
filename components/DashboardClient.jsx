@@ -110,6 +110,7 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   const dateFormatter = useMemo(() => {
     const locale = lang === 'en' ? 'en-US' : lang === 'pap' ? 'es-ES' : 'es-ES';
     return new Intl.DateTimeFormat(locale, {
+      timeZone: 'UTC',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -554,11 +555,13 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                       <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                       <td className="px-4 py-3"><Skeleton className="h-6 w-24" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                      <td className="px-4 py-3"><Skeleton className="h-8 w-20" /></td>
                     </tr>
                   ))
                 ) : filteredVisits.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center">
+                    <td colSpan={7} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center gap-3">
                         <div className="p-4 rounded-full bg-muted">
                           <AlertCircle className="w-8 h-8 text-muted-foreground" />
