@@ -25,6 +25,13 @@ export async function GET() {
     ],
   }).lean();
 
+  // Limpiar flag de re-envío para visitas que enviaron recordatorio pero no tienen patientChatId
+  // Esto permite que el cron re-intente capturar el lid real con el OpenWA corregido
+  await Visit.updateMany(
+    { sent5dPatient: true, patientChatId: { $exists: false }, resendingChatId: true },
+    { $unset: { resendingChatId: 1 } }
+  );
+
   const ownerPhone = process.env.OWNER_WHATSAPP_PHONE;
   let sent = 0;
   let pending = 0;
@@ -60,21 +67,22 @@ export async function GET() {
     }
 
     // Si ya se envió el recordatorio pero no tenemos el patientChatId,
-    // re-enviar para capturarlo (sin importar la ventana de tiempo)
-    if (visit.sent5dPatient && !visit.patientChatId) {
+    // re-enviar para capturarlo (máximo una vez, controlado con un flag)
+    if (visit.sent5dPatient && !visit.patientChatId && !visit.resendingChatId) {
       try {
         console.log(`🔄 Re-enviando recordatorio a ${visit.patientName} para capturar chatId...`);
         const result = await sendReminderToPatient(visit, 5, "minutes");
+        // Marcar que ya intentamos re-enviar para no spamear
+        const updateFields = { resendingChatId: true };
         if (result?.resolvedChatId) {
-          await Visit.updateOne(
-            { _id: visit._id },
-            { $set: { patientChatId: result.resolvedChatId } },
-          );
+          updateFields.patientChatId = result.resolvedChatId;
           console.log(`✅ chatId guardado para ${visit.patientName}: ${result.resolvedChatId}`);
-          sent += 1;
         }
+        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
+        sent += 1;
       } catch (error) {
         console.error(`Error re-enviando a ${visit.patientName}:`, error);
+        await Visit.updateOne({ _id: visit._id }, { $set: { resendingChatId: true } });
       }
     }
 

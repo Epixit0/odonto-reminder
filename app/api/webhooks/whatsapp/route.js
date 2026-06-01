@@ -169,13 +169,12 @@ export async function POST(request) {
       }
     }
 
-    // Intentar resolver el número vía OpenWA (funciona con @lid y @c.us)
+    // Intentar resolver el número vía OpenWA
     if (!visit && sessionId) {
       console.log(`🔍 Resolviendo contacto vía OpenWA...`);
       const contactInfo = await resolvePhoneFromChatId(sessionId, fromChatId);
-      console.log(`🔍 OpenWA devolvió: ${JSON.stringify(contactInfo)}`);
 
-      // 1. Intentar por número de teléfono (para @c.us normal)
+      // Intentar por número de teléfono
       if (contactInfo?.number) {
         const digits = String(contactInfo.number).replace(/\D/g, "").slice(-10);
         console.log(`🔍 Dígitos desde OpenWA: "${digits}"`);
@@ -188,28 +187,6 @@ export async function POST(request) {
           console.log(`✅ Visita encontrada vía OpenWA (número): ${visit.patientName}`);
           visit.patientChatId = fromChatId;
           await visit.save();
-        }
-      }
-
-      // 2. Si no, buscar por pushName (útil para @lid donde el número no es el real)
-      if (!visit && contactInfo?.pushName) {
-        const name = contactInfo.pushName.trim().replace(/[^\w\s]/g, "").toLowerCase();
-        console.log(`🔍 Buscando por nombre limpio: "${name}"`);
-        // Buscar por coincidencia parcial: que el nombre en DB contenga alguna palabra del pushName
-        const words = name.split(/\s+/).filter(w => w.length > 1);
-        if (words.length > 0) {
-          visit = await Visit.findOne({
-            patientName: { $regex: words.join("|"), $options: "i" },
-            confirmationStatus: "pending",
-          }).sort({ createdAt: -1 });
-
-          if (visit) {
-            console.log(`✅ Visita encontrada por nombre: ${visit.patientName}`);
-            visit.patientChatId = fromChatId;
-            await visit.save();
-          } else {
-            console.log(`❌ No se encontró visita con palabras: "${words.join("|")}"`);
-          }
         }
       }
     }
