@@ -141,6 +141,7 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   useEffect(() => {
     let interval;
     let countdownInterval;
+    let visitsInterval;
 
     async function processMinuteReminders() {
       try {
@@ -170,6 +171,18 @@ export default function DashboardClient({ username, initialVisits = [] }) {
       }
     }
 
+    // Recargar visitas cada 30s para reflejar cambios de confirmación
+    async function refreshVisits() {
+      try {
+        const res = await fetch('/api/patients');
+        if (!res.ok) return;
+        const data = await res.json();
+        setVisits(data.items || []);
+      } catch (e) {
+        // silencio
+      }
+    }
+
     // Countdown regresivo
     function updateCountdown() {
       if (countdown && countdown.secondsUntilReminder > 0) {
@@ -183,10 +196,12 @@ export default function DashboardClient({ username, initialVisits = [] }) {
     // Revisar cada 10 segundos
     processMinuteReminders(); // Inmediato al cargar
     interval = setInterval(processMinuteReminders, 10000);
+    visitsInterval = setInterval(refreshVisits, 30000);
     countdownInterval = setInterval(updateCountdown, 1000);
 
     return () => {
       clearInterval(interval);
+      clearInterval(visitsInterval);
       clearInterval(countdownInterval);
     };
   }, []);
@@ -390,35 +405,6 @@ export default function DashboardClient({ username, initialVisits = [] }) {
             subtitle="Requieren reagenda"
           />
         </div>
-
-        {/* Indicador de próximos recordatorios */}
-        {countdown && (
-          <div className="mb-6 glass-card rounded-xl p-4 border border-amber-200/50 bg-amber-50/50 dark:bg-amber-900/10 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                <div>
-                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                    Próximo recordatorio por minuto
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    {countdown.name} - ({countdown.type})
-                  </p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-amber-700 dark:text-amber-200 tabular-nums">
-                  {countdown.secondsUntilReminder > 60
-                    ? `${Math.floor(countdown.secondsUntilReminder / 60)}m ${countdown.secondsUntilReminder % 60}s`
-                    : `${countdown.secondsUntilReminder}s`}
-                </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400">
-                  para enviar recordatorio
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Formulario de registro colapsable */}
         <Card className="glass-card mb-8 overflow-hidden">
