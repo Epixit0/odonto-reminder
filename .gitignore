@@ -1,0 +1,8 @@
+node_modules
+.next
+.env*
+!.env.example
+npm-debug.log*
+OpenWA/
+openwa/
+system_prompts_leaks/

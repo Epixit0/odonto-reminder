@@ -1,0 +1,19 @@
+{
+  "appTitle": "Odonto Reminder Aruba",
+  "loginTitle": "Iniciar sesión",
+  "username": "Usuario",
+  "password": "Contraseña",
+  "login": "Entrar",
+  "logout": "Cerrar sesión",
+  "dashboardTitle": "Registro de pacientes",
+  "patientName": "Nombre del paciente",
+  "patientPhone": "WhatsApp del paciente",
+  "language": "Idioma",
+  "treatment": "Tratamiento",
+  "treatmentDate": "Fecha de tratamiento",
+  "save": "Guardar",
+  "nextVisit": "Próximo control",
+  "reminder5": "Faltan 5 días para su cita de control odontológico.",
+  "reminder2": "Faltan 2 días para su cita de control odontológico.",
+  "ownerReminder": "Recordatorio: paciente con cita próxima."
+}

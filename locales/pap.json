@@ -1,0 +1,19 @@
+{
+  "appTitle": "Odonto Reminder Aruba",
+  "loginTitle": "Drenta seshon",
+  "username": "Usuario",
+  "password": "Kontraseña",
+  "login": "Drenta",
+  "logout": "Sali",
+  "dashboardTitle": "Registro di pashènt",
+  "patientName": "Nòmber di pashènt",
+  "patientPhone": "WhatsApp di pashènt",
+  "language": "Idioma",
+  "treatment": "Tratamentu",
+  "treatmentDate": "Fecha di tratamentu",
+  "save": "Warda",
+  "nextVisit": "Siguiente kontrol",
+  "reminder5": "Falta 5 dia pa bo sita di kontrol odontológiko.",
+  "reminder2": "Falta 2 dia pa bo sita di kontrol odontológiko.",
+  "ownerReminder": "Recordatorio: pashènt ku sita serka."
+}
