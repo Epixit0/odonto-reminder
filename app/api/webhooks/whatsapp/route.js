@@ -110,11 +110,33 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    console.log("📩 Webhook recibido:", JSON.stringify(body, null, 2));
+    console.log("📩 Webhook recibido body completo:", JSON.stringify(body, null, 2));
 
     // Extraer datos del mensaje (formato OpenWA)
-    const from = body.from || body.chatId || body.sender || body.key?.remoteJid;
-    const text = body.text || body.message || body.body || body.message?.conversation;
+    // Posibles formatos de OpenWA
+    const from = 
+      body.from || 
+      body.chatId || 
+      body.sender || 
+      body.key?.remoteJid || 
+      body.data?.from ||
+      body.data?.sender ||
+      body.payload?.from ||
+      body.payload?.sender;
+      
+    const text = 
+      body.text || 
+      body.message || 
+      body.body || 
+      body.message?.conversation ||
+      body.data?.text ||
+      body.data?.body ||
+      body.data?.message?.conversation ||
+      body.payload?.text ||
+      body.payload?.body;
+    
+    console.log(`📱 from extraído: "${from}"`);
+    console.log(`💬 text extraído: "${text}"`);
     
     if (!from || !text) {
       console.log("⚠️ Mensaje sin 'from' o 'text', ignorando");
