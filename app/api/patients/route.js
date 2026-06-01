@@ -4,19 +4,21 @@ import { getSession } from "@/lib/auth";
 import Visit from "@/models/Visit";
 
 function addFollowUpDate(dateString, value, unit) {
-  const d = new Date(dateString);
+  // Parse YYYY-MM-DD como fecha local, no UTC
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
 
   if (unit === "minutes") {
-    d.setMinutes(d.getMinutes() + value);
+    date.setMinutes(date.getMinutes() + value);
   } else if (unit === "days") {
-    d.setDate(d.getDate() + value);
+    date.setDate(date.getDate() + value);
   } else if (unit === "weeks") {
-    d.setDate(d.getDate() + value * 7);
+    date.setDate(date.getDate() + value * 7);
   } else {
-    d.setMonth(d.getMonth() + value);
+    date.setMonth(date.getMonth() + value);
   }
 
-  return d;
+  return date;
 }
 
 export async function GET() {
@@ -61,6 +63,10 @@ export async function POST(request) {
       ? parsedNotifyValue
       : 3;
 
+  // Parse treatmentDate como local (YYYY-MM-DD)
+  const [ty, tm, td] = treatmentDate.split("-").map(Number);
+  const parsedTreatmentDate = new Date(ty, tm - 1, td);
+
   const followUpDate = addFollowUpDate(
     treatmentDate,
     safeNotifyValue,
@@ -73,7 +79,7 @@ export async function POST(request) {
     patientPhone,
     language,
     treatmentType,
-    treatmentDate,
+    treatmentDate: parsedTreatmentDate,
     followUpDate,
     notifyUnit: safeNotifyUnit,
     notifyValue: safeNotifyValue,
