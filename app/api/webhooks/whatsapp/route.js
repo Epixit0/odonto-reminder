@@ -9,7 +9,7 @@ async function resolvePhoneFromChatId(sessionId, chatId) {
   const apiKey = process.env.OPENWA_API_KEY;
   if (!baseUrl || !apiKey || !sessionId) return null;
   try {
-    // Si es @lid, usar endpoint de contacto para resolver el número real
+    // Si es @lid, obtener datos del contacto
     if (chatId.endsWith("@lid")) {
       const encoded = encodeURIComponent(chatId);
       const res = await fetch(
@@ -18,8 +18,10 @@ async function resolvePhoneFromChatId(sessionId, chatId) {
       );
       if (!res.ok) return null;
       const data = await res.json();
-      // El campo 'number' es el teléfono real (ej: "584121985398")
-      return data?.number || null;
+      const number = data?.number || null;
+      const pushName = data?.pushName || data?.name || null;
+      // Devolvemos tanto número como nombre para búsqueda
+      return { number, pushName };
     }
 
     // Para @c.us normal, usar check que verifica si el número existe
@@ -29,7 +31,7 @@ async function resolvePhoneFromChatId(sessionId, chatId) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    return data.number || data.id || null;
+    return { number: data.number || data.id || null };
   } catch (err) {
     return null;
   }
@@ -170,22 +172,40 @@ export async function POST(request) {
     // Intentar resolver el número vía OpenWA (funciona con @lid y @c.us)
     if (!visit && sessionId) {
       console.log(`🔍 Resolviendo contacto vía OpenWA...`);
-      const phone = await resolvePhoneFromChatId(sessionId, fromChatId);
-      console.log(`🔍 OpenWA devolvió: "${phone || "null"}"`);
-      if (phone) {
-        const digits = String(phone).replace(/\D/g, "").slice(-10);
-        console.log(`🔍 Dígitos para búsqueda: "${digits}"`);
+      const contactInfo = await resolvePhoneFromChatId(sessionId, fromChatId);
+      console.log(`🔍 OpenWA devolvió: ${JSON.stringify(contactInfo)}`);
+
+      // 1. Intentar por número de teléfono (para @c.us normal)
+      if (contactInfo?.number) {
+        const digits = String(contactInfo.number).replace(/\D/g, "").slice(-10);
+        console.log(`🔍 Dígitos desde OpenWA: "${digits}"`);
         visit = await Visit.findOne({
           patientPhone: { $regex: digits },
           confirmationStatus: "pending",
         }).sort({ createdAt: -1 });
-        
+
         if (visit) {
-          console.log(`✅ Visita encontrada vía OpenWA: ${visit.patientName}`);
+          console.log(`✅ Visita encontrada vía OpenWA (número): ${visit.patientName}`);
+          visit.patientChatId = fromChatId;
+          await visit.save();
+        }
+      }
+
+      // 2. Si no, buscar por pushName (útil para @lid donde el número no es el real)
+      if (!visit && contactInfo?.pushName) {
+        const name = contactInfo.pushName.trim();
+        console.log(`🔍 Buscando por nombre: "${name}"`);
+        visit = await Visit.findOne({
+          patientName: { $regex: name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" },
+          confirmationStatus: "pending",
+        }).sort({ createdAt: -1 });
+
+        if (visit) {
+          console.log(`✅ Visita encontrada por nombre: ${visit.patientName}`);
           visit.patientChatId = fromChatId;
           await visit.save();
         } else {
-          console.log(`❌ No se encontró visita con teléfono: "${digits}"`);
+          console.log(`❌ No se encontró visita con nombre: "${name}"`);
         }
       }
     }
