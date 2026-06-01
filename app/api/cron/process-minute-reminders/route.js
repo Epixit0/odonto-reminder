@@ -37,7 +37,7 @@ export async function GET() {
     const diffSec = Math.round((now.getTime() - createdAt.getTime()) / 1000);
     const remainingSec = (notifyValue * 60) - diffSec; // segundos que faltan para el recordatorio
 
-    // Primer recordatorio: notifyValue minutos después de creado
+    // Recordatorio único: notifyValue minutos después de creado
     if (!visit.sent5dPatient && inWindowFromCreated(createdAt, notifyValue)) {
       try {
         await sendReminderToPatient(visit, 5, "minutes");
@@ -46,31 +46,12 @@ export async function GET() {
         }
         await Visit.updateOne(
           { _id: visit._id },
-          { $set: { sent5dPatient: true, sent5dOwner: Boolean(ownerPhone) } },
+          { $set: { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) } },
         );
         sent += 1;
         console.log(`✅ Recordatorio enviado a ${visit.patientName} (${notifyValue}min después de registro)`);
       } catch (error) {
         console.error(`Error enviando recordatorio a ${visit.patientName}:`, error);
-      }
-    }
-
-    // Segundo recordatorio: notifyValue * 2 minutos después de creado
-    // (si pusiste 1 min, el segundo llega a los 2 min; si pusiste 5, a los 10 min)
-    if (!visit.sent2dPatient && inWindowFromCreated(createdAt, notifyValue * 2)) {
-      try {
-        await sendReminderToPatient(visit, 2, "minutes");
-        if (ownerPhone && !visit.sent2dOwner) {
-          await sendReminderToOwner(visit, 2, "minutes");
-        }
-        await Visit.updateOne(
-          { _id: visit._id },
-          { $set: { sent2dPatient: true, sent2dOwner: Boolean(ownerPhone) } },
-        );
-        sent += 1;
-        console.log(`✅ Segundo recordatorio enviado a ${visit.patientName} (${notifyValue * 2}min después de registro)`);
-      } catch (error) {
-        console.error(`Error enviando segundo recordatorio a ${visit.patientName}:`, error);
       }
     }
 
@@ -83,16 +64,6 @@ export async function GET() {
           type: `${notifyValue}min`,
           secondsUntilReminder: remainingSec,
         });
-      } else if (!visit.sent2dPatient) {
-        const remaining2 = (notifyValue * 2 * 60) - diffSec;
-        if (remaining2 > 0) {
-          nextReminders.push({
-            id: visit._id,
-            name: visit.patientName,
-            type: `${notifyValue * 2}min`,
-            secondsUntilReminder: remaining2,
-          });
-        }
       }
       pending++;
     }

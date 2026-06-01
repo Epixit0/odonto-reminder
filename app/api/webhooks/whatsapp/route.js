@@ -128,7 +128,24 @@ export async function POST(request) {
       confirmationStatus: "pending",
     });
 
-    // Si no encuentra, intentar resolver el número
+    // Si no encuentra por chatId, buscar directamente por número
+    // extrayendo los dígitos del fromChatId (que ya es el teléfono)
+    if (!visit) {
+      const digits = fromChatId.replace(/\D/g, "").slice(-10);
+      if (digits) {
+        visit = await Visit.findOne({
+          patientPhone: { $regex: digits },
+          confirmationStatus: "pending",
+        }).sort({ createdAt: -1 });
+
+        if (visit) {
+          visit.patientChatId = fromChatId;
+          await visit.save();
+        }
+      }
+    }
+
+    // Último recurso: intentar resolver el número vía OpenWA
     if (!visit && sessionId) {
       const phone = await resolvePhoneFromChatId(sessionId, fromChatId);
       if (phone) {
@@ -138,7 +155,6 @@ export async function POST(request) {
           confirmationStatus: "pending",
         }).sort({ createdAt: -1 });
         
-        // Guardar el chatId para próxima vez
         if (visit) {
           visit.patientChatId = fromChatId;
           await visit.save();
