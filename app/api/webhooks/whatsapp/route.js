@@ -193,19 +193,23 @@ export async function POST(request) {
 
       // 2. Si no, buscar por pushName (útil para @lid donde el número no es el real)
       if (!visit && contactInfo?.pushName) {
-        const name = contactInfo.pushName.trim();
-        console.log(`🔍 Buscando por nombre: "${name}"`);
-        visit = await Visit.findOne({
-          patientName: { $regex: name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" },
-          confirmationStatus: "pending",
-        }).sort({ createdAt: -1 });
+        const name = contactInfo.pushName.trim().replace(/[^\w\s]/g, "").toLowerCase();
+        console.log(`🔍 Buscando por nombre limpio: "${name}"`);
+        // Buscar por coincidencia parcial: que el nombre en DB contenga alguna palabra del pushName
+        const words = name.split(/\s+/).filter(w => w.length > 1);
+        if (words.length > 0) {
+          visit = await Visit.findOne({
+            patientName: { $regex: words.join("|"), $options: "i" },
+            confirmationStatus: "pending",
+          }).sort({ createdAt: -1 });
 
-        if (visit) {
-          console.log(`✅ Visita encontrada por nombre: ${visit.patientName}`);
-          visit.patientChatId = fromChatId;
-          await visit.save();
-        } else {
-          console.log(`❌ No se encontró visita con nombre: "${name}"`);
+          if (visit) {
+            console.log(`✅ Visita encontrada por nombre: ${visit.patientName}`);
+            visit.patientChatId = fromChatId;
+            await visit.save();
+          } else {
+            console.log(`❌ No se encontró visita con palabras: "${words.join("|")}"`);
+          }
         }
       }
     }

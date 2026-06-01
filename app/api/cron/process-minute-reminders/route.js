@@ -59,6 +59,25 @@ export async function GET() {
       }
     }
 
+    // Si ya se envió el recordatorio pero no tenemos el patientChatId,
+    // re-enviar para capturarlo (sin importar la ventana de tiempo)
+    if (visit.sent5dPatient && !visit.patientChatId) {
+      try {
+        console.log(`🔄 Re-enviando recordatorio a ${visit.patientName} para capturar chatId...`);
+        const result = await sendReminderToPatient(visit, 5, "minutes");
+        if (result?.resolvedChatId) {
+          await Visit.updateOne(
+            { _id: visit._id },
+            { $set: { patientChatId: result.resolvedChatId } },
+          );
+          console.log(`✅ chatId guardado para ${visit.patientName}: ${result.resolvedChatId}`);
+          sent += 1;
+        }
+      } catch (error) {
+        console.error(`Error re-enviando a ${visit.patientName}:`, error);
+      }
+    }
+
     // Calcular próximos recordatorios para mostrar countdown
     if (remainingSec > 0 && remainingSec < 600) {
       if (!visit.sent5dPatient) {
