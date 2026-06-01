@@ -40,13 +40,17 @@ export async function GET() {
     // Recordatorio único: notifyValue minutos después de creado
     if (!visit.sent5dPatient && inWindowFromCreated(createdAt, notifyValue)) {
       try {
-        await sendReminderToPatient(visit, 5, "minutes");
+        const result = await sendReminderToPatient(visit, 5, "minutes");
         if (ownerPhone && !visit.sent5dOwner) {
           await sendReminderToOwner(visit, 5, "minutes");
         }
+        const updateFields = { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) };
+        if (result?.resolvedChatId) {
+          updateFields.patientChatId = result.resolvedChatId;
+        }
         await Visit.updateOne(
           { _id: visit._id },
-          { $set: { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) } },
+          { $set: updateFields },
         );
         sent += 1;
         console.log(`✅ Recordatorio enviado a ${visit.patientName} (${notifyValue}min después de registro)`);

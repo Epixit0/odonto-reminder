@@ -73,16 +73,18 @@ export async function GET(request) {
     // Primer recordatorio (5 días/minutos antes)
     if (firstReminderMatch && !visit.sent5dPatient) {
       try {
-        await sendReminderToPatient(visit, 5, isMinuteMode ? "minutes" : "days");
+        const result = await sendReminderToPatient(visit, 5, isMinuteMode ? "minutes" : "days");
         
         if (ownerPhone && !visit.sent5dOwner) {
           await sendReminderToOwner(visit, 5, isMinuteMode ? "minutes" : "days");
         }
 
-        await Visit.updateOne(
-          { _id: visit._id },
-          { $set: { sent5dPatient: true, sent5dOwner: Boolean(ownerPhone) } },
-        );
+        const updateFields = { sent5dPatient: true, sent5dOwner: Boolean(ownerPhone) };
+        // Guardar el chatId real devuelto por WhatsApp para que el webhook pueda encontrar al paciente
+        if (result?.resolvedChatId) {
+          updateFields.patientChatId = result.resolvedChatId;
+        }
+        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
         sent += 1;
       } catch (error) {
         console.error(`Error enviando recordatorio 5d a ${visit.patientName}:`, error);
@@ -93,16 +95,17 @@ export async function GET(request) {
     // Segundo recordatorio (2 días/minutos antes)
     if (secondReminderMatch && !visit.sent2dPatient) {
       try {
-        await sendReminderToPatient(visit, 2, isMinuteMode ? "minutes" : "days");
+        const result = await sendReminderToPatient(visit, 2, isMinuteMode ? "minutes" : "days");
         
         if (ownerPhone && !visit.sent2dOwner) {
           await sendReminderToOwner(visit, 2, isMinuteMode ? "minutes" : "days");
         }
 
-        await Visit.updateOne(
-          { _id: visit._id },
-          { $set: { sent2dPatient: true, sent2dOwner: Boolean(ownerPhone) } },
-        );
+        const updateFields = { sent2dPatient: true, sent2dOwner: Boolean(ownerPhone) };
+        if (result?.resolvedChatId) {
+          updateFields.patientChatId = result.resolvedChatId;
+        }
+        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
         sent += 1;
       } catch (error) {
         console.error(`Error enviando recordatorio 2d a ${visit.patientName}:`, error);
