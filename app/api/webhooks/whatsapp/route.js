@@ -3,11 +3,26 @@ import Visit from "@/models/Visit";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Obtener número desde OpenWA
+// Soporta tanto @c.us como @lid (ID interno de privacidad de WhatsApp)
 async function resolvePhoneFromChatId(sessionId, chatId) {
   const baseUrl = process.env.OPENWA_API_URL;
   const apiKey = process.env.OPENWA_API_KEY;
-  if (!baseUrl || !apiKey) return null;
+  if (!baseUrl || !apiKey || !sessionId) return null;
   try {
+    // Si es @lid, usar endpoint de contacto para resolver el número real
+    if (chatId.endsWith("@lid")) {
+      const encoded = encodeURIComponent(chatId);
+      const res = await fetch(
+        `${baseUrl}/api/sessions/${sessionId}/contacts/${encoded}`,
+        { headers: { "X-API-Key": apiKey } }
+      );
+      if (!res.ok) return null;
+      const data = await res.json();
+      // El campo 'number' es el teléfono real (ej: "584121985398")
+      return data?.number || null;
+    }
+
+    // Para @c.us normal, usar check que verifica si el número existe
     const res = await fetch(
       `${baseUrl}/api/sessions/${sessionId}/contacts/check/${chatId}`,
       { headers: { "X-API-Key": apiKey } }
@@ -120,6 +135,9 @@ export async function POST(request) {
 
     await connectDB();
 
+    console.log(`🔍 sessionId presente: ${Boolean(sessionId)}`);
+    console.log(`🔍 fromChatId: "${fromChatId}"`);
+
     // =============================================
     // BUSCAR PACIENTE POR CHAT ID GUARDADO
     // =============================================
@@ -129,9 +147,10 @@ export async function POST(request) {
     });
 
     // Si no encuentra por chatId, buscar directamente por número
-    // extrayendo los dígitos del fromChatId (que ya es el teléfono)
+    // extrayendo los dígitos del fromChatId
     if (!visit) {
       const digits = fromChatId.replace(/\D/g, "").slice(-10);
+      console.log(`🔍 Dígitos extraídos de fromChatId: "${digits}"`);
       if (digits) {
         visit = await Visit.findOne({
           patientPhone: { $regex: digits },
@@ -139,26 +158,67 @@ export async function POST(request) {
         }).sort({ createdAt: -1 });
 
         if (visit) {
+          console.log(`✅ Encontrado por dígitos directos: ${visit.patientName}`);
           visit.patientChatId = fromChatId;
           await visit.save();
+        } else {
+          console.log(`❌ No se encontró visita con dígitos: "${digits}"`);
         }
       }
     }
 
-    // Último recurso: intentar resolver el número vía OpenWA
+    // Intentar resolver el número vía OpenWA (funciona con @lid y @c.us)
     if (!visit && sessionId) {
+      console.log(`🔍 Resolviendo contacto vía OpenWA...`);
       const phone = await resolvePhoneFromChatId(sessionId, fromChatId);
+      console.log(`🔍 OpenWA devolvió: "${phone || "null"}"`);
       if (phone) {
         const digits = String(phone).replace(/\D/g, "").slice(-10);
+        console.log(`🔍 Dígitos para búsqueda: "${digits}"`);
         visit = await Visit.findOne({
           patientPhone: { $regex: digits },
           confirmationStatus: "pending",
         }).sort({ createdAt: -1 });
         
         if (visit) {
+          console.log(`✅ Visita encontrada vía OpenWA: ${visit.patientName}`);
           visit.patientChatId = fromChatId;
           await visit.save();
+        } else {
+          console.log(`❌ No se encontró visita con teléfono: "${digits}"`);
         }
+      }
+    }
+
+    // ÚLTIMO RECURSO: buscar entre todas las visitas pendientes
+    // por coincidencia parcial del número de teléfono
+    if (!visit) {
+      const allPending = await Visit.find({
+        confirmationStatus: "pending",
+      }).sort({ createdAt: -1 }).limit(20).lean();
+
+      console.log(`🔍 Fallback: revisando ${allPending.length} visitas pendientes...`);
+      for (const v of allPending) {
+        const phoneDigits = v.patientPhone.replace(/\D/g, "");
+        const chatIdDigits = fromChatId.replace(/\D/g, "");
+        // Coincidencia parcial: los últimos 8+ dígitos coinciden
+        if (phoneDigits.length >= 8 && chatIdDigits.length >= 8) {
+          const phoneTail = phoneDigits.slice(-8);
+          const chatTail = chatIdDigits.slice(-8);
+          if (phoneTail === chatTail) {
+            visit = v;
+            console.log(`✅ Fallback: encontrado ${v.patientName} por dígitos finales`);
+            // Guardar el patientChatId actualizado
+            await Visit.updateOne(
+              { _id: v._id },
+              { $set: { patientChatId: fromChatId } }
+            );
+            break;
+          }
+        }
+      }
+      if (!visit) {
+        console.log(`❌ Fallback: ninguna visita pendiente coincide`);
       }
     }
 
