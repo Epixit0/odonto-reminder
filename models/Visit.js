@@ -26,6 +26,7 @@ const VisitSchema = new Schema(
     },
     patientResponse: { type: String, trim: true },
     respondedAt: { type: Date },
+    patientChatId: { type: String, trim: true }, // ID de WhatsApp del chat
   },
   { timestamps: true },
 );

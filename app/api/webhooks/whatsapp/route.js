@@ -2,20 +2,42 @@ import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
+// Obtener número real desde OpenWA usando contact/check
+async function resolvePhoneFromChatId(sessionId, chatId) {
+  const baseUrl = process.env.OPENWA_API_URL;
+  const apiKey = process.env.OPENWA_API_KEY;
+  if (!baseUrl || !apiKey) return null;
+
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/sessions/${sessionId}/contacts/check/${chatId}`,
+      { headers: { "X-API-Key": apiKey } }
+    );
+    if (!res.ok) {
+      console.log(`⚠️ contact/check falló: ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    console.log("📞 Contact check response:", JSON.stringify(data, null, 2));
+    return data;
+  } catch (err) {
+    console.error("❌ Error resolviendo contacto:", err);
+    return null;
+  }
+}
+
 // Parser de intenciones del paciente
 function parseConfirmationIntent(text) {
   if (!text) return null;
   
   const normalized = text.toLowerCase().trim();
   
-  // Palabras de confirmación
   const confirmWords = [
     "si", "sí", "yes", "ok", "okay", "confirmo", "confirmado", 
     "asistiré", "asistire", "voy", "perfecto", "bien", "dale", 
     "correcto", "claro", "por supuesto"
   ];
   
-  // Palabras de cancelación
   const cancelWords = [
     "no", "cancelo", "cancelado", "no puedo", "no voy", "cancelar",
     "anular", "anulo", "imposible", "otro día", "otro dia", "reagendar"
@@ -32,7 +54,6 @@ function parseConfirmationIntent(text) {
   return null;
 }
 
-// Formatear fecha para mensajes
 function formatDate(date) {
   return new Date(date).toLocaleDateString("es-ES", {
     weekday: "long",
@@ -42,7 +63,6 @@ function formatDate(date) {
   });
 }
 
-// Notificar al odontólogo de la respuesta del paciente
 async function notifyOwnerOfResponse(visit, status) {
   const ownerPhone = process.env.OWNER_WHATSAPP_PHONE;
   if (!ownerPhone) return;
@@ -70,7 +90,6 @@ ${status === "cancelled" ? "⚠️ El paciente canceló. Considere reagendar." :
   }
 }
 
-// Responder al paciente confirmando su respuesta
 async function respondToPatient(phone, status, language = "es") {
   const messages = {
     es: {
@@ -100,7 +119,6 @@ async function respondToPatient(phone, status, language = "es") {
 
 export async function POST(request) {
   try {
-    // Verificar API key del webhook si está configurada
     const webhookSecret = process.env.WEBHOOK_SECRET;
     if (webhookSecret) {
       const authHeader = request.headers.get("authorization");
@@ -112,88 +130,87 @@ export async function POST(request) {
     const body = await request.json();
     console.log("📩 Webhook recibido body completo:", JSON.stringify(body, null, 2));
 
-    // Extraer datos del mensaje (formato OpenWA)
-    // Posibles formatos de OpenWA
-    const from = 
-      body.from || 
-      body.chatId || 
-      body.sender || 
-      body.key?.remoteJid || 
-      body.data?.from ||
-      body.data?.sender ||
-      body.payload?.from ||
-      body.payload?.sender;
-      
-    const text = 
-      body.text || 
-      body.message || 
-      body.body || 
-      body.message?.conversation ||
-      body.data?.text ||
-      body.data?.body ||
-      body.data?.message?.conversation ||
-      body.payload?.text ||
-      body.payload?.body;
+    const sessionId = body.sessionId;
+    const payload = body.data || body;
     
-    console.log(`📱 from extraído: "${from}"`);
-    console.log(`💬 text extraído: "${text}"`);
+    const fromChatId = payload.from || payload.chatId;
+    const text = payload.body || payload.text || payload.message;
     
-    if (!from || !text) {
-      console.log("⚠️ Mensaje sin 'from' o 'text', ignorando");
-      return Response.json({ ok: true, message: "Ignored", body });
+    console.log(`📱 fromChatId: "${fromChatId}"`);
+    console.log(`💬 text: "${text}"`);
+    
+    if (!fromChatId || !text) {
+      console.log("⚠️ Mensaje sin datos, ignorando");
+      return Response.json({ ok: true, message: "Ignored" });
     }
 
-    // Limpiar número de teléfono (quitar @c.us, @s.whatsapp.net, espacios, etc.)
-    const phoneNumber = from.replace(/@(c\.us|s\.whatsapp\.net)/g, "").replace(/\D/g, "");
-    console.log(`📱 Mensaje de: ${phoneNumber}`);
-    console.log(`💬 Texto: ${text}`);
-
-    // Parsear intención
     const intent = parseConfirmationIntent(text);
     if (!intent) {
-      console.log("🤔 No se pudo determinar la intención del mensaje");
+      console.log("🤔 No se pudo determinar la intención");
       return Response.json({ ok: true, message: "No intent detected" });
     }
+    console.log(`🎯 Intención: ${intent}`);
 
-    console.log(`🎯 Intención detectada: ${intent}`);
-
-    // Conectar a BD
     await connectDB();
 
-    // Buscar la visita más reciente del paciente (SIN filtro de fecha futura)
+    // Buscar visita que tenga este patientChatId
     let visit = await Visit.findOne({
-      patientPhone: { $regex: phoneNumber.slice(-10) }, // Buscar por últimos 10 dígitos
+      patientChatId: fromChatId,
       confirmationStatus: "pending",
-    }).sort({ followUpDate: -1 }); // La más reciente primero
+    }).sort({ followUpDate: -1 });
+
+    // Si no encontramos, intentar resolver el número vía OpenWA
+    if (!visit && sessionId && fromChatId) {
+      console.log(`🔍 Intentando resolver contacto vía OpenWA...`);
+      const contactInfo = await resolvePhoneFromChatId(sessionId, fromChatId);
+      
+      if (contactInfo) {
+        const phone = String(contactInfo.number || contactInfo.id || "");
+        const digits = phone.replace(/\D/g, "").slice(-10);
+        console.log(`📞 Número resuelto: ${phone}, últimos 10: ${digits}`);
+        
+        visit = await Visit.findOne({
+          patientPhone: { $regex: digits },
+          confirmationStatus: "pending",
+        }).sort({ followUpDate: -1 });
+        
+        // Si encontramos, guardamos el chatId para próxima vez
+        if (visit) {
+          visit.patientChatId = fromChatId;
+          await visit.save();
+          console.log(`✅ patientChatId guardado para ${visit.patientName}`);
+        }
+      }
+    }
+
+    // Último intento: buscar por paciente que tenga el número en el chatId
+    if (!visit && fromChatId) {
+      // Extraer dígitos del fromChatId (quitando @lid, @c.us, etc)
+      const digits = fromChatId.replace(/@\w+/g, "").replace(/\D/g, "").slice(-10);
+      if (digits.length >= 7) {
+        visit = await Visit.findOne({
+          patientPhone: { $regex: digits },
+          confirmationStatus: "pending",
+        }).sort({ followUpDate: -1 });
+      }
+    }
 
     if (!visit) {
-      console.log(`⚠️ No se encontró visita pendiente para ${phoneNumber}`);
-      // Intentar sin los últimos 10 dígitos (buscar el número completo)
-      visit = await Visit.findOne({
-        patientPhone: { $regex: phoneNumber },
-        confirmationStatus: "pending",
-      }).sort({ followUpDate: -1 });
-      
-      if (!visit) {
-        console.log(`⚠️ Tampoco se encontró con búsqueda completa`);
-        return Response.json({ ok: true, message: "No pending visit found" });
-      }
+      console.log(`⚠️ No se encontró visita pendiente`);
+      return Response.json({ ok: true, message: "No pending visit found" });
     }
 
     console.log(`✅ Visita encontrada: ${visit.patientName} - ${visit.treatmentType}`);
 
-    // Actualizar visita
     visit.confirmationStatus = intent;
     visit.patientResponse = text;
     visit.respondedAt = new Date();
+    visit.patientChatId = fromChatId;
     await visit.save();
 
-    console.log(`✅ Visita actualizada: ${intent}`);
+    console.log(`✅ Visita actualizada a ${intent}`);
 
-    // Responder al paciente
     await respondToPatient(visit.patientPhone, intent, visit.language);
-
-    // Notificar al odontólogo
     await notifyOwnerOfResponse(visit, intent);
 
     return Response.json({ 
@@ -212,7 +229,6 @@ export async function POST(request) {
   }
 }
 
-// Para verificar el webhook (OpenWA usualmente requiere esto)
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const challenge = searchParams.get("challenge");
