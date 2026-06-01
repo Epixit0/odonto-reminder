@@ -113,16 +113,16 @@ export async function POST(request) {
     console.log("📩 Webhook recibido:", JSON.stringify(body, null, 2));
 
     // Extraer datos del mensaje (formato OpenWA)
-    const from = body.from || body.chatId || body.sender;
-    const text = body.text || body.message || body.body;
+    const from = body.from || body.chatId || body.sender || body.key?.remoteJid;
+    const text = body.text || body.message || body.body || body.message?.conversation;
     
     if (!from || !text) {
       console.log("⚠️ Mensaje sin 'from' o 'text', ignorando");
-      return Response.json({ ok: true, message: "Ignored" });
+      return Response.json({ ok: true, message: "Ignored", body });
     }
 
-    // Limpiar número de teléfono (quitar @c.us si existe)
-    const phoneNumber = from.replace(/@c\.us$/, "").replace(/\D/g, "");
+    // Limpiar número de teléfono (quitar @c.us, @s.whatsapp.net, espacios, etc.)
+    const phoneNumber = from.replace(/@(c\.us|s\.whatsapp\.net)/g, "").replace(/\D/g, "");
     console.log(`📱 Mensaje de: ${phoneNumber}`);
     console.log(`💬 Texto: ${text}`);
 
@@ -138,16 +138,24 @@ export async function POST(request) {
     // Conectar a BD
     await connectDB();
 
-    // Buscar la visita más reciente del paciente que esté pendiente
-    const visit = await Visit.findOne({
+    // Buscar la visita más reciente del paciente (SIN filtro de fecha futura)
+    let visit = await Visit.findOne({
       patientPhone: { $regex: phoneNumber.slice(-10) }, // Buscar por últimos 10 dígitos
       confirmationStatus: "pending",
-      followUpDate: { $gte: new Date() }, // Citas futuras
-    }).sort({ followUpDate: 1 });
+    }).sort({ followUpDate: -1 }); // La más reciente primero
 
     if (!visit) {
       console.log(`⚠️ No se encontró visita pendiente para ${phoneNumber}`);
-      return Response.json({ ok: true, message: "No pending visit found" });
+      // Intentar sin los últimos 10 dígitos (buscar el número completo)
+      visit = await Visit.findOne({
+        patientPhone: { $regex: phoneNumber },
+        confirmationStatus: "pending",
+      }).sort({ followUpDate: -1 });
+      
+      if (!visit) {
+        console.log(`⚠️ Tampoco se encontró con búsqueda completa`);
+        return Response.json({ ok: true, message: "No pending visit found" });
+      }
     }
 
     console.log(`✅ Visita encontrada: ${visit.patientName} - ${visit.treatmentType}`);

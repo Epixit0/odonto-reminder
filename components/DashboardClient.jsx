@@ -19,7 +19,6 @@ import {
   Loader2,
   Bell,
   TrendingUp,
-  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -631,13 +630,10 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                     Estado
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    <div className="flex items-center gap-1">
-                      <Bell className="w-3 h-3" />
-                      Envíos
-                    </div>
+                    Recordatorio
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Acción
+                    Acciones
                   </th>
                 </tr>
               </thead>
@@ -679,15 +675,19 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                     </td>
                   </tr>
                 ) : (
-                  filteredVisits.map((v) => (
-                    <PatientRow
-                      key={v._id}
-                      visit={v}
-                      dateFormatter={dateFormatter}
-                      t={t}
-                      onUpdate={loadVisits}
-                    />
-                  ))
+                  filteredVisits.map((v) => {
+                    // Buscar countdown para esta visita
+                    const visitCountdown = countdown && countdown.id === v._id ? countdown : null;
+                    return (
+                      <PatientRow
+                        key={v._id}
+                        visit={v}
+                        dateFormatter={dateFormatter}
+                        t={t}
+                        countdown={visitCountdown}
+                      />
+                    );
+                  })
                 )}
               </tbody>
             </table>
