@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Toaster, toast } from 'sonner';
+import PatientRow from '@/components/PatientRow';
 
 const COUNTRY_OPTIONS = [
   { code: '+297', shortLabel: 'AW +297', fullLabel: '🇦🇼 Aruba (+297)', minDigits: 7, maxDigits: 7 },
@@ -544,6 +545,15 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Estado
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="flex items-center gap-1">
+                      <Bell className="w-3 h-3" />
+                      Envíos
+                    </div>
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Acción
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -585,31 +595,13 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                   </tr>
                 ) : (
                   filteredVisits.map((v) => (
-                    <tr key={v._id} className="hover:bg-muted/30 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{v.patientName}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {v.language === 'es' ? '🇪🇸 Español' : v.language === 'en' ? '🇺🇸 English' : '🇦🇼 Papiamento'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">{v.patientPhone}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">{v.treatmentType}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium">
-                          {dateFormatter.format(new Date(v.followUpDate))}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Tratado: {dateFormatter.format(new Date(v.treatmentDate))}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={v.confirmationStatus || 'pending'} t={t} />
-                      </td>
-                    </tr>
+                    <PatientRow
+                      key={v._id}
+                      visit={v}
+                      dateFormatter={dateFormatter}
+                      t={t}
+                      onUpdate={loadVisits}
+                    />
                   ))
                 )}
               </tbody>
