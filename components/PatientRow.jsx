@@ -2,15 +2,14 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, Loader2, CheckCircle2 } from "lucide-react";
+import { Send, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2 as CheckCircle2Solid, XCircle, Clock } from "lucide-react";
 
 function StatusBadge({ status, t }) {
   const configs = {
     confirmed: {
-      icon: CheckCircle2Solid,
+      icon: CheckCircle2,
       className: "badge-confirmed",
       label: t?.confirmed || "Confirmado",
     },
