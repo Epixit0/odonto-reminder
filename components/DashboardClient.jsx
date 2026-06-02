@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { getDictionary } from "@/lib/i18n";
-import { Stethoscope, LogOut, Globe, Users, CheckCircle2, XCircle, Clock, Download } from "lucide-react";
+import { Stethoscope, LogOut, Globe, Users, CheckCircle2, XCircle, Clock, Download, LayoutDashboard, Activity, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Toaster, toast } from "sonner";
@@ -32,39 +32,10 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   const [loading, setLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [countdown, setCountdown] = useState(null);
 
-  // Polling para recordatorios por minuto y recarga de visitas
+  // Recarga silenciosa de visitas cada 30s para reflejar confirmaciones
   useEffect(() => {
-    let interval;
-    let countdownInterval;
-    let visitsInterval;
-
-    async function processMinuteReminders() {
-      try {
-        const res = await fetch("/api/cron/process-minute-reminders");
-        if (!res.ok) return;
-        const data = await res.json();
-        
-        if (data.sent > 0) {
-          toast.success(`${data.sent} recordatorio(s) enviado(s)`);
-          loadVisits();
-        }
-
-        if (data.nextReminders && data.nextReminders.length > 0) {
-          const nearest = data.nextReminders.reduce((min, r) => 
-            r.secondsUntilReminder < min.secondsUntilReminder ? r : min
-          );
-          setCountdown(nearest);
-        } else {
-          setCountdown(null);
-        }
-      } catch (error) {
-        // silencio
-      }
-    }
-
-    async function refreshVisits() {
+    const interval = setInterval(async () => {
       try {
         const res = await fetch("/api/patients");
         if (!res.ok) return;
@@ -73,28 +44,9 @@ export default function DashboardClient({ username, initialVisits = [] }) {
       } catch (e) {
         // silencio
       }
-    }
-
-    function updateCountdown() {
-      if (countdown && countdown.secondsUntilReminder > 0) {
-        setCountdown(prev => ({
-          ...prev,
-          secondsUntilReminder: prev.secondsUntilReminder - 1
-        }));
-      }
-    }
-
-    processMinuteReminders();
-    interval = setInterval(processMinuteReminders, 10000);
-    visitsInterval = setInterval(refreshVisits, 30000);
-    countdownInterval = setInterval(updateCountdown, 1000);
-
-    return () => {
-      clearInterval(interval);
-      clearInterval(visitsInterval);
-      clearInterval(countdownInterval);
-    };
-  }, [countdown]);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -146,7 +98,6 @@ export default function DashboardClient({ username, initialVisits = [] }) {
     window.location.href = "/login";
   }
 
-  // Atajos de teclado
   const shortcuts = [
     { key: "f", ctrlKey: true, handler: () => document.querySelector('input[placeholder*="Buscar"]')?.focus() },
     { key: "e", ctrlKey: true, handler: () => exportVisitsToCSV(filteredVisits, t) },
@@ -157,26 +108,47 @@ export default function DashboardClient({ username, initialVisits = [] }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <Toaster position="top-right" richColors />
       
-      <header className="sticky top-0 z-50 glass border-b border-white/20 dark:border-white/5">
+      {/* ===== HEADER REDISEÑADO ===== */}
+      <header className="sticky top-0 z-50 bg-gradient-header border-b border-white/10 dark:border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
+            {/* Logo + Marca */}
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-[var(--aruba-turquoise)] to-[var(--aruba-orange)] rounded-xl blur-lg opacity-40" />
-                <div className="relative bg-white dark:bg-slate-800 rounded-xl p-2 shadow-aruba-sm">
-                  <Stethoscope className="w-6 h-6 text-[var(--aruba-turquoise)]" />
+                <div className="absolute inset-0 bg-white/20 rounded-xl blur-md" />
+                <div className="relative bg-white/10 backdrop-blur-sm rounded-xl p-2 border border-white/20">
+                  <Stethoscope className="w-5 h-5 text-white" />
                 </div>
               </div>
-              <div>
-                <h1 className="text-lg font-bold text-gradient-hero">Odonto Reminder</h1>
-                <p className="text-xs text-muted-foreground">{username}</p>
+              <div className="hidden sm:block">
+                <h1 className="text-base font-bold text-white tracking-tight">
+                  Odonto <span className="text-[#5eead4]">Reminder</span>
+                </h1>
+                <p className="text-[10px] text-white/50 tracking-wider uppercase">Aruba · Dental Care</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Navegación + Controles */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              {/* Nav items */}
+              <div className="hidden md:flex items-center gap-1">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 text-white text-xs font-medium border border-white/10">
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Dashboard
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/5 text-xs font-medium transition-all cursor-pointer">
+                  <Activity className="w-3.5 h-3.5" />
+                  Actividad
+                </div>
+              </div>
+
+              {/* Separador */}
+              <div className="hidden sm:block w-px h-6 bg-white/10" />
+
+              {/* Selector idioma */}
               <Select value={lang} onValueChange={setLang}>
-                <SelectTrigger className="w-[140px] h-9">
-                  <Globe className="w-4 h-4 mr-2" />
+                <SelectTrigger className="w-[120px] h-8 bg-white/10 border-white/10 text-white text-xs hover:bg-white/20 transition-all">
+                  <Globe className="w-3.5 h-3.5 mr-1.5 text-white/60" />
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -185,20 +157,41 @@ export default function DashboardClient({ username, initialVisits = [] }) {
                   <SelectItem value="pap">Papiamento</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               <ThemeToggle />
-              
-              <Button variant="ghost" size="sm" onClick={logout} className="gap-2">
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.logout}</span>
-              </Button>
+
+              {/* Avatar usuario + Logout */}
+              <div className="flex items-center gap-2 pl-2 border-l border-white/10">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#5eead4] to-[#14b8a6] flex items-center justify-center text-[10px] font-bold text-white shadow-lg">
+                  {username?.charAt(0).toUpperCase() || "A"}
+                </div>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={logout} 
+                  className="h-7 text-white/50 hover:text-white hover:bg-white/10 text-xs px-2 hidden sm:flex"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 animate-fade-in">
+        {/* Welcome */}
+        <div className="flex items-center justify-between mb-8 animate-fade-in">
+          <div>
+            <h2 className="text-2xl font-bold text-gradient-hero">Panel de Control</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Bienvenido, {username}. {stats.total} pacientes en el sistema.
+            </p>
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <StatCard
             title="Total Pacientes"
             value={stats.total}
@@ -258,11 +251,10 @@ export default function DashboardClient({ username, initialVisits = [] }) {
           onClearFilters={() => { setSearchQuery(""); setFilterStatus("all"); }}
           t={t}
           dateFormatter={dateFormatter}
-          countdown={countdown}
         />
 
-        <footer className="mt-8 text-center text-xs text-muted-foreground">
-          <p>Odonto Reminder Aruba © 2024 - Sistema de gestión de citas dentales</p>
+        <footer className="mt-12 pt-6 border-t border-border text-center text-xs text-muted-foreground">
+          <p>Odonto Reminder Aruba © 2024 — Hecho con ❤️ para tu clínica dental</p>
         </footer>
       </main>
     </div>

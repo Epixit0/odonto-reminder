@@ -2,20 +2,12 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, Loader2, Timer } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import StatusBadge from "@/components/dashboard/StatusBadge";
 import Link from "next/link";
 
-function formatCountdown(seconds) {
-  if (seconds <= 0) return null;
-  if (seconds > 60) {
-    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  }
-  return `${seconds}s`;
-}
-
-export default function PatientRow({ visit, dateFormatter, t, countdown }) {
+export default function PatientRow({ visit, dateFormatter, t }) {
   const [sending, setSending] = useState(false);
   const [simulating, setSimulating] = useState(false);
 
@@ -51,7 +43,6 @@ export default function PatientRow({ visit, dateFormatter, t, countdown }) {
       const data = await res.json();
       if (data.status) {
         toast.success(`${visit.patientName} ha ${status === "confirmed" ? "confirmado" : "cancelado"} la cita`);
-        // Recargar página para ver cambios
         setTimeout(() => window.location.reload(), 1000);
       } else {
         throw new Error(data.message || "Error");
@@ -63,24 +54,19 @@ export default function PatientRow({ visit, dateFormatter, t, countdown }) {
     }
   }
 
-  const nextReminder = countdown && countdown.secondsUntilReminder > 0
-    ? formatCountdown(countdown.secondsUntilReminder)
-    : null;
-
   const remindersSent = [];
   if (visit.sent5dPatient) remindersSent.push("1°✅");
-  if (visit.sent2dPatient) remindersSent.push("2°✅");
 
   return (
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
         <Link 
           href={`/patients/${visit.patientId || visit._id}`} 
-          className="font-medium text-[var(--aruba-turquoise)] hover:underline transition-colors"
+          className="font-medium text-[var(--aruba-turquoise)] hover:text-[var(--aruba-turquoise-dark)] transition-colors"
         >
           {visit.patientName}
         </Link>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-xs text-muted-foreground mt-0.5">
           {visit.language === "es"
             ? "🇪🇸 Español"
             : visit.language === "en"
@@ -106,12 +92,7 @@ export default function PatientRow({ visit, dateFormatter, t, countdown }) {
         <StatusBadge status={visit.confirmationStatus || "pending"} t={t} />
       </td>
       <td className="px-4 py-3">
-        {visit.notifyUnit === "minutes" && nextReminder ? (
-          <div className="flex items-center gap-1.5 text-sm font-medium text-amber-600">
-            <Timer className="w-3.5 h-3.5 animate-pulse" />
-            {nextReminder}
-          </div>
-        ) : remindersSent.length > 0 ? (
+        {remindersSent.length > 0 ? (
           <span className="text-xs text-emerald-600 font-medium">
             {remindersSent.join(" ")}
           </span>

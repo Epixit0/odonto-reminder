@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import PatientRow from "@/components/PatientRow";
 
-export default function PatientTable({ visits, loading, searchQuery, filterStatus, onClearFilters, t, dateFormatter, countdown }) {
+export default function PatientTable({ visits, loading, searchQuery, filterStatus, onClearFilters, t, dateFormatter }) {
   return (
     <Card className="glass-card overflow-hidden">
       <div className="overflow-x-auto">
@@ -80,18 +80,14 @@ export default function PatientTable({ visits, loading, searchQuery, filterStatu
                 </td>
               </tr>
             ) : (
-              visits.map((v) => {
-                const visitCountdown = countdown && countdown.id === v._id ? countdown : null;
-                return (
-                  <PatientRow
-                    key={v._id}
-                    visit={v}
-                    dateFormatter={dateFormatter}
-                    t={t}
-                    countdown={visitCountdown}
-                  />
-                );
-              })
+              visits.map((v) => (
+                <PatientRow
+                  key={v._id}
+                  visit={v}
+                  dateFormatter={dateFormatter}
+                  t={t}
+                />
+              ))
             )}
           </tbody>
         </table>

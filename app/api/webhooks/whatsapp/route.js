@@ -154,10 +154,23 @@ export async function POST(request) {
       console.log(`🤔 No se pudo determinar intención (texto: "${text}")`);
       // Auto-respuesta: el paciente no entendió el mensaje
       await connectDB();
-      const pendingVisit = await Visit.findOne({
+      
+      // Buscar por chatId o por número de teléfono
+      let pendingVisit = await Visit.findOne({
         patientChatId: fromChatId,
         confirmationStatus: "pending",
       });
+      
+      if (!pendingVisit) {
+        const digits = fromChatId.replace(/\D/g, "").slice(-10);
+        if (digits) {
+          pendingVisit = await Visit.findOne({
+            patientPhone: { $regex: digits },
+            confirmationStatus: "pending",
+          }).sort({ createdAt: -1 });
+        }
+      }
+      
       if (pendingVisit) {
         const lang = pendingVisit.language || "es";
         const autoMessages = {

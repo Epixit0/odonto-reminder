@@ -9,29 +9,22 @@
    ============================================ */
 
 :root {
-  /* Colores base */
   --background: oklch(0.98 0.005 250);
   --foreground: oklch(0.15 0.02 250);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  
-  /* Colores Aruba primarios */
-  --primary: oklch(0.65 0.12 195);
+  --primary: oklch(0.6 0.14 195);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.75 0.08 55);
+  --secondary: oklch(0.72 0.1 55);
   --secondary-foreground: oklch(0.15 0 0);
-  
-  /* Estados de confirmación */
   --confirmed: oklch(0.65 0.15 145);
   --confirmed-foreground: oklch(0.99 0 0);
   --pending: oklch(0.75 0.1 85);
   --pending-foreground: oklch(0.25 0 0);
   --cancelled: oklch(0.55 0.18 25);
   --cancelled-foreground: oklch(0.99 0 0);
-  
-  /* Colores de soporte */
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.5 0 0);
   --accent: oklch(0.97 0 0);
@@ -39,10 +32,9 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.9 0 0);
   --input: oklch(0.9 0 0);
-  --ring: oklch(0.65 0.12 195);
+  --ring: oklch(0.6 0.14 195);
   --radius: 0.75rem;
   
-  /* Colores Aruba específicos */
   --aruba-turquoise: #00A8B5;
   --aruba-turquoise-light: #4ECDC4;
   --aruba-turquoise-dark: #007A8A;
@@ -51,33 +43,32 @@
   --aruba-orange-dark: #E76F51;
   --aruba-coral: #E76F51;
   --aruba-sand: #F8F5F2;
-  --aruba-white: #FFFFFF;
   
-  /* Gradientes */
-  --gradient-aruba: linear-gradient(135deg, var(--aruba-turquoise) 0%, var(--aruba-turquoise-light) 100%);
-  --gradient-warm: linear-gradient(135deg, var(--aruba-orange) 0%, var(--aruba-orange-light) 100%);
-  --gradient-hero: linear-gradient(135deg, var(--aruba-turquoise) 0%, var(--aruba-orange) 100%);
+  --gradient-aruba: linear-gradient(135deg, #00A8B5 0%, #4ECDC4 100%);
+  --gradient-warm: linear-gradient(135deg, #F4A261 0%, #F7C59F 100%);
+  --gradient-hero: linear-gradient(135deg, #00A8B5 0%, #F4A261 100%);
+  --gradient-header: linear-gradient(135deg, #0f172a 0%, #1a2744 50%, #0d9488 100%);
 }
 
 .dark {
-  --background: oklch(0.15 0.02 250);
+  --background: oklch(0.12 0.02 260);
   --foreground: oklch(0.95 0 0);
-  --card: oklch(0.2 0.02 250);
+  --card: oklch(0.16 0.02 260);
   --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.2 0.02 250);
+  --popover: oklch(0.16 0.02 260);
   --popover-foreground: oklch(0.95 0 0);
-  --primary: oklch(0.7 0.12 195);
+  --primary: oklch(0.65 0.14 195);
   --primary-foreground: oklch(0.15 0 0);
-  --secondary: oklch(0.8 0.08 55);
+  --secondary: oklch(0.75 0.1 55);
   --secondary-foreground: oklch(0.15 0 0);
-  --muted: oklch(0.25 0.02 250);
-  --muted-foreground: oklch(0.65 0 0);
-  --accent: oklch(0.25 0.02 250);
+  --muted: oklch(0.2 0.02 260);
+  --muted-foreground: oklch(0.6 0 0);
+  --accent: oklch(0.2 0.02 260);
   --accent-foreground: oklch(0.95 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.7 0.12 195);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.65 0.14 195);
 }
 
 @theme inline {
@@ -111,304 +102,142 @@
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-
+  * { @apply border-border outline-ring/50; }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
-  
-  /* Scrollbar personalizada */
-  ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  
-  ::-webkit-scrollbar-thumb {
-    background: var(--aruba-turquoise-light);
-    border-radius: 4px;
-  }
-  
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--aruba-turquoise);
-  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--aruba-turquoise-light); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--aruba-turquoise); }
 }
 
 @layer components {
-  /* Glassmorphism Cards */
   .glass-card {
     @apply bg-white/80 backdrop-blur-xl border border-white/20 shadow-xl;
     box-shadow: 
-      0 4px 6px -1px rgba(0, 168, 181, 0.1),
-      0 2px 4px -1px rgba(0, 168, 181, 0.06),
+      0 4px 6px -1px rgba(0, 168, 181, 0.08),
+      0 2px 4px -1px rgba(0, 168, 181, 0.04),
       inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
   }
-  
-  .glass-card-dark {
-    @apply bg-slate-900/80 backdrop-blur-xl border border-white/10 shadow-xl;
-    box-shadow: 
-      0 4px 6px -1px rgba(0, 0, 0, 0.3),
-      0 2px 4px -1px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
-  }
-  
-  /* Gradient backgrounds */
-  .bg-gradient-aruba {
-    background: var(--gradient-aruba);
-  }
-  
-  .bg-gradient-warm {
-    background: var(--gradient-warm);
-  }
-  
-  .bg-gradient-hero {
-    background: var(--gradient-hero);
-  }
-  
-  /* Badges de estado */
+
   .badge-confirmed {
     @apply bg-emerald-100 text-emerald-800 border-emerald-200;
     @apply dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800;
   }
-  
   .badge-pending {
     @apply bg-amber-100 text-amber-800 border-amber-200;
     @apply dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800;
   }
-  
   .badge-cancelled {
     @apply bg-rose-100 text-rose-800 border-rose-200;
     @apply dark:bg-rose-900/30 dark:text-rose-400 dark:border-rose-800;
   }
-  
-  /* Botones Aruba */
+
   .btn-aruba {
     @apply bg-[var(--aruba-turquoise)] text-white font-medium;
     @apply hover:bg-[var(--aruba-turquoise-dark)] transition-all duration-200;
     @apply shadow-lg shadow-[var(--aruba-turquoise)]/25;
   }
   
-  .btn-aruba-secondary {
-    @apply bg-[var(--aruba-orange)] text-white font-medium;
-    @apply hover:bg-[var(--aruba-orange-dark)] transition-all duration-200;
-    @apply shadow-lg shadow-[var(--aruba-orange)]/25;
-  }
-  
-  /* Inputs premium */
   .input-aruba {
     @apply border-slate-200 bg-white/50 backdrop-blur-sm;
     @apply focus:border-[var(--aruba-turquoise)] focus:ring-[var(--aruba-turquoise)]/20;
     @apply transition-all duration-200;
   }
-  
-  /* Animaciones */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
-  }
-  
-  .animate-slide-up {
-    animation: slideUp 0.5s ease-out;
-  }
-  
-  .animate-scale-in {
-    animation: scaleIn 0.3s ease-out;
-  }
-  
-  .animate-pulse-soft {
-    animation: pulseSoft 2s ease-in-out infinite;
-  }
-  
+
+  .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+  .animate-slide-up { animation: slideUp 0.5s ease-out; }
+  .animate-scale-in { animation: scaleIn 0.3s ease-out; }
+  .animate-pulse-soft { animation: pulseSoft 2s ease-in-out infinite; }
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
     background-size: 200% 100%;
   }
-  
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-  
-  .animate-breathe {
-    animation: breathe 3s ease-in-out infinite;
-  }
-  
-  .animate-slide-in-right {
-    animation: slideInRight 0.4s ease-out forwards;
-  }
-  
-  .animate-scale-in-bounce {
-    animation: scaleInBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  }
-  
-  /* Hover effects */
+  .animate-float { animation: float 3s ease-in-out infinite; }
+  .animate-breathe { animation: breathe 3s ease-in-out infinite; }
+  .animate-slide-in-right { animation: slideInRight 0.4s ease-out forwards; }
+  .animate-scale-in-bounce { animation: scaleInBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
   .hover-lift {
-    @apply transition-transform duration-200;
+    @apply transition-all duration-300;
   }
-  
   .hover-lift:hover {
-    transform: translateY(-2px);
-  }
-  
-  /* Status indicators */
-  .status-dot {
-    @apply w-2.5 h-2.5 rounded-full;
-  }
-  
-  .status-confirmed {
-    @apply bg-emerald-500;
-    box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
-  }
-  
-  .status-pending {
-    @apply bg-amber-500;
-    box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-  }
-  
-  .status-cancelled {
-    @apply bg-rose-500;
-    box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px -5px rgba(0, 168, 181, 0.2);
   }
 }
 
 @layer utilities {
-  /* Text gradients */
   .text-gradient-aruba {
     background: var(--gradient-aruba);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
   .text-gradient-hero {
     background: var(--gradient-hero);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
-  /* Glass effects */
   .glass {
     @apply bg-white/70 backdrop-blur-lg;
   }
-  
-  .glass-dark {
-    @apply bg-slate-900/70 backdrop-blur-lg;
-  }
-  
-  /* Shadows premium */
   .shadow-aruba {
-    box-shadow: 
-      0 10px 40px -10px rgba(0, 168, 181, 0.3),
-      0 4px 12px -4px rgba(0, 168, 181, 0.15);
+    box-shadow: 0 10px 40px -10px rgba(0, 168, 181, 0.3), 0 4px 12px -4px rgba(0, 168, 181, 0.15);
   }
-  
   .shadow-aruba-sm {
-    box-shadow: 
-      0 4px 12px -2px rgba(0, 168, 181, 0.2),
-      0 2px 6px -1px rgba(0, 168, 181, 0.1);
+    box-shadow: 0 4px 12px -2px rgba(0, 168, 181, 0.2), 0 2px 6px -1px rgba(0, 168, 181, 0.1);
   }
 }
 
-/* Keyframes */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
-
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
-
 @keyframes pulseSoft {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
-
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
 }
-
 @keyframes breathe {
   0%, 100% { opacity: 0.6; transform: scale(1); }
   50% { opacity: 1; transform: scale(1.02); }
 }
-
 @keyframes slideInRight {
   from { opacity: 0; transform: translateX(30px); }
   to { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes scaleInBounce {
   0% { opacity: 0; transform: scale(0.8); }
   70% { transform: scale(1.05); }
   100% { opacity: 1; transform: scale(1); }
 }
-
-/* Toast animations */
 @keyframes toastSlideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
-
 @keyframes toastSlideOut {
-  from {
-    transform: translateX(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
 }
-
-.toast-enter {
-  animation: toastSlideIn 0.3s ease-out forwards;
-}
-
-.toast-exit {
-  animation: toastSlideOut 0.3s ease-in forwards;
-}
+.toast-enter { animation: toastSlideIn 0.3s ease-out forwards; }
+.toast-exit { animation: toastSlideOut 0.3s ease-in forwards; }
