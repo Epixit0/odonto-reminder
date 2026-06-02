@@ -1,7 +1,7 @@
 {
   "name": "odontologia-app",
-  "version": "1.0.0",
-  "description": "Sistema de recordatorios odontológicos con WhatsApp",
+  "version": "1.0.1",
+  "description": "Dent Q Clinic — recordatorios WhatsApp con cita y hora",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
