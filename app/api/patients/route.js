@@ -35,12 +35,21 @@ export async function POST(request) {
     treatmentDate,
     appointmentDate,
     appointmentTime,
+    appointmentDateTime,
     notifyUnit,
     notifyValue,
   } = payload;
 
   const isMinuteTest = notifyUnit === "minutes";
-  const dateForAppointment = appointmentDate || treatmentDate;
+
+  let dateForAppointment = appointmentDate;
+  let timeForAppointment = appointmentTime || "09:00";
+
+  if (!isMinuteTest && appointmentDateTime && String(appointmentDateTime).includes("T")) {
+    const [d, t] = String(appointmentDateTime).split("T");
+    dateForAppointment = d;
+    timeForAppointment = (t || "09:00").slice(0, 5);
+  }
 
   if (!patientName || !patientPhone || !treatmentType || (!isMinuteTest && !dateForAppointment)) {
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
@@ -61,7 +70,7 @@ export async function POST(request) {
     parsedTreatmentDate = now;
     followUpDate = new Date(now.getTime() + safeNotifyValue * 60 * 1000);
   } else {
-    followUpDate = parseAppointmentDateTime(dateForAppointment, appointmentTime || "09:00");
+    followUpDate = parseAppointmentDateTime(dateForAppointment, timeForAppointment);
     if (followUpDate <= now) {
       return NextResponse.json({ error: "La cita debe ser en el futuro" }, { status: 400 });
     }

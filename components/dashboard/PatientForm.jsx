@@ -18,10 +18,20 @@ const COUNTRY_OPTIONS = [
   { code: "+58", shortLabel: "VE +58", fullLabel: "🇻🇪 Venezuela (+58)", minDigits: 10, maxDigits: 10 },
 ];
 
-function defaultAppointmentDate() {
+function defaultAppointmentDateTime() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
+  d.setHours(9, 0, 0, 0);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`;
+}
+
+function splitDateTime(dateTimeLocal) {
+  if (!dateTimeLocal || !dateTimeLocal.includes("T")) {
+    return { appointmentDate: "", appointmentTime: "09:00" };
+  }
+  const [appointmentDate, appointmentTime] = dateTimeLocal.split("T");
+  return { appointmentDate, appointmentTime: appointmentTime.slice(0, 5) };
 }
 
 export default function PatientForm({ onSuccess, t }) {
@@ -33,8 +43,7 @@ export default function PatientForm({ onSuccess, t }) {
     localPhone: "",
     language: "es",
     treatmentType: "",
-    appointmentDate: defaultAppointmentDate(),
-    appointmentTime: "09:00",
+    appointmentDateTime: defaultAppointmentDateTime(),
     notifyValue: "1",
     notifyUnit: "appointment",
   });
@@ -79,13 +88,16 @@ export default function PatientForm({ onSuccess, t }) {
       return;
     }
 
+    const { appointmentDate, appointmentTime } = splitDateTime(form.appointmentDateTime);
+
     const payload = {
       patientName: form.patientName,
       patientPhone: `${form.countryCode}${digits}`,
       language: form.language,
       treatmentType: form.treatmentType,
-      appointmentDate: form.appointmentDate,
-      appointmentTime: form.appointmentTime,
+      appointmentDate,
+      appointmentTime,
+      appointmentDateTime: form.appointmentDateTime,
       notifyValue: form.notifyValue,
       notifyUnit: form.notifyUnit,
     };
@@ -111,8 +123,7 @@ export default function PatientForm({ onSuccess, t }) {
         localPhone: "",
         language: "es",
         treatmentType: "",
-        appointmentDate: defaultAppointmentDate(),
-        appointmentTime: "09:00",
+        appointmentDateTime: defaultAppointmentDateTime(),
         notifyValue: "1",
         notifyUnit: "appointment",
       });
@@ -244,28 +255,19 @@ export default function PatientForm({ onSuccess, t }) {
                 </div>
               </div>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Fecha de la cita</Label>
-                  <Input
-                    type="date"
-                    value={form.appointmentDate}
-                    onChange={(e) => setForm((p) => ({ ...p, appointmentDate: e.target.value }))}
-                    required
-                    className="input-aruba"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Hora de la cita</Label>
-                  <Input
-                    type="time"
-                    value={form.appointmentTime}
-                    onChange={(e) => setForm((p) => ({ ...p, appointmentTime: e.target.value }))}
-                    required
-                    className="input-aruba"
-                  />
-                </div>
-              </>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="text-sm font-medium">Fecha y hora de la cita</Label>
+                <Input
+                  type="datetime-local"
+                  value={form.appointmentDateTime}
+                  onChange={(e) => setForm((p) => ({ ...p, appointmentDateTime: e.target.value }))}
+                  required
+                  className="input-aruba max-w-md"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Recordatorio WhatsApp 6 horas antes de esta fecha y hora
+                </p>
+              </div>
             )}
 
             <div className="md:col-span-2 lg:col-span-3 flex justify-end">
