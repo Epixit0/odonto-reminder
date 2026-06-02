@@ -3,24 +3,7 @@ import { connectDB } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import Visit from "@/models/Visit";
 import Patient from "@/models/Patient";
-
-function addFollowUpDate(dateString, value, unit) {
-  // Parse YYYY-MM-DD como fecha local, no UTC
-  const [year, month, day] = dateString.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-
-  if (unit === "minutes") {
-    date.setMinutes(date.getMinutes() + value);
-  } else if (unit === "days") {
-    date.setDate(date.getDate() + value);
-  } else if (unit === "weeks") {
-    date.setDate(date.getDate() + value * 7);
-  } else {
-    date.setMonth(date.getMonth() + value);
-  }
-
-  return date;
-}
+import { parseAppointmentDateTime, REMINDER_HOURS_BEFORE } from "@/lib/reminders";
 
 export async function GET() {
   const session = await getSession();
@@ -50,39 +33,45 @@ export async function POST(request) {
     language,
     treatmentType,
     treatmentDate,
+    appointmentDate,
+    appointmentTime,
     notifyUnit,
     notifyValue,
   } = payload;
 
-  if (!patientName || !patientPhone || !treatmentType || !treatmentDate) {
+  const isMinuteTest = notifyUnit === "minutes";
+  const dateForAppointment = appointmentDate || treatmentDate;
+
+  if (!patientName || !patientPhone || !treatmentType || (!isMinuteTest && !dateForAppointment)) {
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
   }
 
-  const allowedUnits = ["minutes", "days", "weeks", "months"];
-  const safeNotifyUnit = allowedUnits.includes(notifyUnit)
-    ? notifyUnit
-    : "months";
-  const parsedNotifyValue = Number.parseInt(String(notifyValue ?? "3"), 10);
+  const allowedUnits = ["minutes", "appointment", "days", "weeks", "months"];
+  const safeNotifyUnit = allowedUnits.includes(notifyUnit) ? notifyUnit : "appointment";
+
+  const parsedNotifyValue = Number.parseInt(String(notifyValue ?? (isMinuteTest ? "1" : "1")), 10);
   const safeNotifyValue =
-    Number.isFinite(parsedNotifyValue) && parsedNotifyValue > 0
-      ? parsedNotifyValue
-      : 3;
+    Number.isFinite(parsedNotifyValue) && parsedNotifyValue > 0 ? parsedNotifyValue : 1;
 
-  // Parse treatmentDate como local (YYYY-MM-DD)
-  const [ty, tm, td] = treatmentDate.split("-").map(Number);
-  const parsedTreatmentDate = new Date(ty, tm - 1, td);
+  const now = new Date();
+  let parsedTreatmentDate;
+  let followUpDate;
 
-  const followUpDate = addFollowUpDate(
-    treatmentDate,
-    safeNotifyValue,
-    safeNotifyUnit,
-  );
+  if (isMinuteTest) {
+    parsedTreatmentDate = now;
+    followUpDate = new Date(now.getTime() + safeNotifyValue * 60 * 1000);
+  } else {
+    followUpDate = parseAppointmentDateTime(dateForAppointment, appointmentTime || "09:00");
+    if (followUpDate <= now) {
+      return NextResponse.json({ error: "La cita debe ser en el futuro" }, { status: 400 });
+    }
+    const [ty, tm, td] = dateForAppointment.split("-").map(Number);
+    parsedTreatmentDate = new Date(ty, tm - 1, td);
+  }
 
   await connectDB();
 
-  // 1. Buscar o crear Patient
   let patient = await Patient.findOne({ phone: patientPhone });
-  const now = new Date();
 
   if (!patient) {
     patient = await Patient.create({
@@ -107,7 +96,6 @@ export async function POST(request) {
     await patient.save();
   }
 
-  // 2. Crear Visit vinculado al Patient
   const created = await Visit.create({
     patientName,
     patientPhone,
@@ -117,6 +105,7 @@ export async function POST(request) {
     followUpDate,
     notifyUnit: safeNotifyUnit,
     notifyValue: safeNotifyValue,
+    reminderHoursBefore: REMINDER_HOURS_BEFORE,
     patientId: patient._id,
   });
 

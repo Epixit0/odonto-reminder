@@ -19,12 +19,14 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   const t = useMemo(() => getDictionary(lang), [lang]);
   
   const dateFormatter = useMemo(() => {
-    const locale = lang === "en" ? "en-US" : lang === "pap" ? "es-ES" : "es-ES";
+    const locale = lang === "en" ? "en-US" : "es-ES";
     return new Intl.DateTimeFormat(locale, {
-      timeZone: "UTC",
+      timeZone: "America/Aruba",
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   }, [lang]);
 
@@ -57,7 +59,7 @@ export default function DashboardClient({ username, initialVisits = [] }) {
     }
     tick();
 
-    const interval = setInterval(tick, 20000);
+    const interval = setInterval(tick, 5000);
     return () => clearInterval(interval);
   }, [visits]);
 

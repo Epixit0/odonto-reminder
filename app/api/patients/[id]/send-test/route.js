@@ -18,9 +18,9 @@ export async function POST(request, { params }) {
   }
 
   const testMessages = {
-    es: `🧪 *Mensaje de prueba - Odonto Reminder*\n\nHola ${visit.patientName}, este es un mensaje de prueba del sistema de recordatorios.\n\n✅ Si recibes esto, la configuración de WhatsApp funciona correctamente.`,
-    en: `🧪 *Test Message - Odonto Reminder*\n\nHi ${visit.patientName}, this is a test message from the reminder system.\n\n✅ If you received this, the WhatsApp configuration is working correctly.`,
-    pap: `🧪 *Mensashi di prueba - Odonto Reminder*\n\nBon dia ${visit.patientName}, esaki ta un mensashi di prueba di sistema di recordatorio.\n\n✅ Si bo a ricibi esaki, e configuracion di WhatsApp ta trahando.`,
+    es: `🧪 *Mensaje de prueba - Dent Q Clinic*\n\nHola ${visit.patientName}, este es un mensaje de prueba del sistema de recordatorios.\n\n✅ Si recibes esto, la configuración de WhatsApp funciona correctamente.`,
+    en: `🧪 *Test Message - Dent Q Clinic*\n\nHi ${visit.patientName}, this is a test message from the reminder system.\n\n✅ If you received this, the WhatsApp configuration is working correctly.`,
+    pap: `🧪 *Mensashi di prueba - Dent Q Clinic*\n\nBon dia ${visit.patientName}, esaki ta un mensashi di prueba di sistema di recordatorio.\n\n✅ Si bo a ricibi esaki, e configuracion di WhatsApp ta trahando.`,
   };
 
   const lang = testMessages[visit.language] ? visit.language : "es";

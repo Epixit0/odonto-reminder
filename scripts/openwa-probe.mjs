@@ -1,6 +1,6 @@
 const BASE = process.env.OPENWA_API_URL || "https://openwa-railway-production.up.railway.app";
 const KEY = process.env.OPENWA_API_KEY || "dev-admin-key";
-const SID = process.env.OPENWA_SESSION_ID || "1f5d9616-d30c-4e5d-89c8-3d99285f11bb";
+const SID = process.env.OPENWA_SESSION_ID || "89171047-405d-4277-aed1-694b53e3f4bb";
 
 async function get(path) {
   const res = await fetch(`${BASE}${path}`, { headers: { "X-API-Key": KEY } });

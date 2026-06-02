@@ -6,6 +6,8 @@ import { normalizeChatId, phoneDigitsFromChatId, phoneTailDigits } from "@/lib/c
 import { resolvePhoneFromChatId } from "@/lib/openwaContacts";
 import { findPendingVisit, canAcceptPatientReply } from "@/lib/visitMatching";
 import { parseConfirmationIntent, getUnrecognizedReplyMessage } from "@/lib/confirmationIntent";
+import { CLINIC_NAME } from "@/lib/reminders";
+import { formatAppointmentDateTime } from "@/lib/formatAppointment";
 
 function extractIncomingText(payload) {
   if (!payload) return null;
@@ -24,13 +26,9 @@ function extractIncomingText(payload) {
   return raw != null ? String(raw) : null;
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("es-ES", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+function formatVisitDateTime(visit) {
+  const { dateStr, timeStr } = formatAppointmentDateTime(visit.followUpDate, visit.language || "es");
+  return `${dateStr} · ${timeStr}`;
 }
 
 async function notifyOwnerOfResponse(visit, status, sessionId) {
@@ -38,7 +36,7 @@ async function notifyOwnerOfResponse(visit, status, sessionId) {
   if (!ownerPhone) return;
   const emoji = status === "confirmed" ? "✅" : "❌";
   const text = status === "confirmed" ? "CONFIRMADO" : "CANCELADO";
-  const message = `📋 *Respuesta de Paciente*\n\n${visit.patientName} ha *${text}* su cita.\n📅 Fecha: ${formatDate(visit.followUpDate)}\n📱 Teléfono: ${visit.patientPhone}\n🦷 Tratamiento: ${visit.treatmentType}\n\n${emoji} ${text}`;
+  const message = `📋 *${CLINIC_NAME} - Respuesta de Paciente*\n\n${visit.patientName} ha *${text}* su cita.\n📅 ${formatVisitDateTime(visit)}\n📱 Teléfono: ${visit.patientPhone}\n🦷 Tratamiento: ${visit.treatmentType}\n\n${emoji} ${text}`;
   try {
     await sendWhatsAppMessage(ownerPhone, message, sessionId);
   } catch (error) {
@@ -49,16 +47,16 @@ async function notifyOwnerOfResponse(visit, status, sessionId) {
 async function respondToPatient(phone, status, language = "es", sessionId) {
   const messages = {
     es: {
-      confirmed: "✅ *¡Gracias!*\n\nSu cita ha sido confirmada. Lo esperamos en la clínica.",
-      cancelled: "❌ *Cita cancelada*\n\nSu cita ha sido cancelada. Para reagendar, contacte a la clínica.",
+      confirmed: `✅ *¡Gracias!*\n\nSu cita en *${CLINIC_NAME}* ha sido confirmada. Lo esperamos.`,
+      cancelled: `❌ *Cita cancelada*\n\nSu cita en *${CLINIC_NAME}* ha sido cancelada. Para reagendar, contacte a la clínica.`,
     },
     en: {
-      confirmed: "✅ *Thank you!*\n\nYour appointment has been confirmed.",
-      cancelled: "❌ *Appointment cancelled*\n\nTo reschedule, please contact the clinic.",
+      confirmed: `✅ *Thank you!*\n\nYour appointment at *${CLINIC_NAME}* has been confirmed.`,
+      cancelled: `❌ *Appointment cancelled*\n\nYour appointment at *${CLINIC_NAME}* has been cancelled. To reschedule, please contact the clinic.`,
     },
     pap: {
-      confirmed: "✅ *Danki!*\n\nSu cita a keda confirma.",
-      cancelled: "❌ *Cita cancela*\n\nPa reagenda, contacta clinica.",
+      confirmed: `✅ *Danki!*\n\nBo cita na *${CLINIC_NAME}* a keda confirma.`,
+      cancelled: `❌ *Cita cancela*\n\nBo cita na *${CLINIC_NAME}* a keda cancela. Pa reagenda, contacta clinica.`,
     },
   };
   const lang = messages[language] ? language : "es";

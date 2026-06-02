@@ -85,7 +85,8 @@ export default function PatientRow({ visit, dateFormatter, t }) {
           {dateFormatter.format(new Date(visit.followUpDate))}
         </div>
         <div className="text-xs text-muted-foreground">
-          Tratado: {dateFormatter.format(new Date(visit.treatmentDate))}
+          {visit.notifyUnit === "minutes" ? "Prueba" : "Cita"} ·{" "}
+          {dateFormatter.format(new Date(visit.followUpDate))}
         </div>
       </td>
       <td className="px-4 py-3">

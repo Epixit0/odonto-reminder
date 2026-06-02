@@ -8,7 +8,7 @@ set -euo pipefail
 
 API_URL="${OPENWA_API_URL:-https://openwa-railway-production.up.railway.app}"
 API_KEY="${OPENWA_API_KEY:-dev-admin-key}"
-SESSION_ID="${OPENWA_SESSION_ID:-1f5d9616-d30c-4e5d-89c8-3d99285f11bb}"
+SESSION_ID="${OPENWA_SESSION_ID:-89171047-405d-4277-aed1-694b53e3f4bb}"
 WEBHOOK_URL="${WEBHOOK_URL:-https://odonto-reminder.vercel.app/api/webhooks/whatsapp}"
 TEST_PHONE="${TEST_PHONE:-584121985398}"
 BASE="${API_URL%/}"

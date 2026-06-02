@@ -18,6 +18,12 @@ const COUNTRY_OPTIONS = [
   { code: "+58", shortLabel: "VE +58", fullLabel: "🇻🇪 Venezuela (+58)", minDigits: 10, maxDigits: 10 },
 ];
 
+function defaultAppointmentDate() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function PatientForm({ onSuccess, t }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,14 +33,17 @@ export default function PatientForm({ onSuccess, t }) {
     localPhone: "",
     language: "es",
     treatmentType: "",
-    treatmentDate: "",
-    notifyValue: "3",
-    notifyUnit: "months",
+    appointmentDate: defaultAppointmentDate(),
+    appointmentTime: "09:00",
+    notifyValue: "1",
+    notifyUnit: "appointment",
   });
+
+  const isMinuteTest = form.notifyUnit === "minutes";
 
   const selectedCountry = useMemo(
     () => COUNTRY_OPTIONS.find((country) => country.code === form.countryCode) || COUNTRY_OPTIONS[0],
-    [form.countryCode]
+    [form.countryCode],
   );
 
   function handleCountryChange(code) {
@@ -49,6 +58,14 @@ export default function PatientForm({ onSuccess, t }) {
   function handleLocalPhoneChange(value) {
     const digits = value.replace(/\D/g, "").slice(0, selectedCountry.maxDigits);
     setForm((prev) => ({ ...prev, localPhone: digits }));
+  }
+
+  function handleNotifyUnitChange(value) {
+    setForm((prev) => ({
+      ...prev,
+      notifyUnit: value,
+      notifyValue: value === "minutes" ? "1" : prev.notifyValue,
+    }));
   }
 
   async function handleSave(e) {
@@ -67,7 +84,8 @@ export default function PatientForm({ onSuccess, t }) {
       patientPhone: `${form.countryCode}${digits}`,
       language: form.language,
       treatmentType: form.treatmentType,
-      treatmentDate: form.treatmentDate,
+      appointmentDate: form.appointmentDate,
+      appointmentTime: form.appointmentTime,
       notifyValue: form.notifyValue,
       notifyUnit: form.notifyUnit,
     };
@@ -79,23 +97,29 @@ export default function PatientForm({ onSuccess, t }) {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error("Error guardando paciente");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error guardando paciente");
 
-      toast.success("Paciente registrado exitosamente");
+      toast.success(
+        isMinuteTest
+          ? "Paciente registrado — recordatorio en ~1 minuto"
+          : "Paciente registrado — recordatorio 6 h antes de la cita",
+      );
       setForm({
         patientName: "",
         countryCode: "+297",
         localPhone: "",
         language: "es",
         treatmentType: "",
-        treatmentDate: "",
-        notifyValue: "3",
-        notifyUnit: "months",
+        appointmentDate: defaultAppointmentDate(),
+        appointmentTime: "09:00",
+        notifyValue: "1",
+        notifyUnit: "appointment",
       });
       setShowForm(false);
       onSuccess?.();
     } catch (error) {
-      toast.error("Error al guardar el paciente");
+      toast.error(error.message || "Error al guardar el paciente");
     } finally {
       setSaving(false);
     }
@@ -112,7 +136,7 @@ export default function PatientForm({ onSuccess, t }) {
             <div>
               <CardTitle className="text-lg">{t?.dashboardTitle || "Registro de pacientes"}</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Registre un nuevo paciente para seguimiento
+                Dent Q Clinic — cita con hora o modo prueba (minutos)
               </p>
             </div>
           </div>
@@ -191,40 +215,58 @@ export default function PatientForm({ onSuccess, t }) {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">{t?.treatmentDate || "Fecha"}</Label>
-              <Input
-                type="date"
-                value={form.treatmentDate}
-                onChange={(e) => setForm((p) => ({ ...p, treatmentDate: e.target.value }))}
-                required
-                className="input-aruba"
-              />
+              <Label className="text-sm font-medium">Tipo de recordatorio</Label>
+              <Select value={form.notifyUnit} onValueChange={handleNotifyUnitChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="appointment">Cita programada (6 h antes)</SelectItem>
+                  <SelectItem value="minutes">Minutos — prueba rápida</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Recordatorio</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="number"
-                  min="1"
-                  value={form.notifyValue}
-                  onChange={(e) => setForm((p) => ({ ...p, notifyValue: e.target.value }))}
-                  required
-                  className="input-aruba w-20"
-                />
-                <Select value={form.notifyUnit} onValueChange={(value) => setForm((p) => ({ ...p, notifyUnit: value }))}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="minutes">Minutos (prueba)</SelectItem>
-                    <SelectItem value="days">Días</SelectItem>
-                    <SelectItem value="weeks">Semanas</SelectItem>
-                    <SelectItem value="months">Meses</SelectItem>
-                  </SelectContent>
-                </Select>
+            {isMinuteTest ? (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Enviar recordatorio en</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={form.notifyValue}
+                    onChange={(e) => setForm((p) => ({ ...p, notifyValue: e.target.value }))}
+                    required
+                    className="input-aruba w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">minuto(s) después de guardar</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Fecha de la cita</Label>
+                  <Input
+                    type="date"
+                    value={form.appointmentDate}
+                    onChange={(e) => setForm((p) => ({ ...p, appointmentDate: e.target.value }))}
+                    required
+                    className="input-aruba"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Hora de la cita</Label>
+                  <Input
+                    type="time"
+                    value={form.appointmentTime}
+                    onChange={(e) => setForm((p) => ({ ...p, appointmentTime: e.target.value }))}
+                    required
+                    className="input-aruba"
+                  />
+                </div>
+              </>
+            )}
 
             <div className="md:col-span-2 lg:col-span-3 flex justify-end">
               <Button type="submit" disabled={saving} className="btn-aruba gap-2 min-w-[160px]">
