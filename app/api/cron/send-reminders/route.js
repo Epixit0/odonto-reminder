@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
 import { sendReminderToPatient, sendReminderToOwner } from "@/lib/whatsapp";
+import { normalizeChatId } from "@/lib/chatId";
 
 function inWindowDays(targetDate, daysBefore) {
   const now = new Date();
@@ -78,8 +79,9 @@ export async function GET(request) {
 
         const updateFields = { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) };
         // Guardar el chatId real devuelto por WhatsApp para que el webhook pueda encontrar al paciente
-        if (result?.resolvedChatId) {
-          updateFields.patientChatId = result.resolvedChatId;
+        const chatId = normalizeChatId(result?.resolvedChatId);
+        if (chatId) {
+          updateFields.patientChatId = chatId;
         }
         await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
         sent += 1;

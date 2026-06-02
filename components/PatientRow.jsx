@@ -36,12 +36,12 @@ export default function PatientRow({ visit, dateFormatter, t }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: visit.patientPhone,
-          text: status === "confirmed" ? "SI" : "NO",
+          from: visit.patientChatId || `${visit.patientPhone.replace(/\D/g, "")}@c.us`,
+          body: status === "confirmed" ? "SI" : "NO",
         }),
       });
       const data = await res.json();
-      if (data.status) {
+      if (data.ok && data.message?.includes("updated")) {
         toast.success(`${visit.patientName} ha ${status === "confirmed" ? "confirmado" : "cancelado"} la cita`);
         setTimeout(() => window.location.reload(), 1000);
       } else {

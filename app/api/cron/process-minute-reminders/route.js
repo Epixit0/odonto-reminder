@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
 import { sendReminderToPatient, sendReminderToOwner } from "@/lib/whatsapp";
+import { normalizeChatId } from "@/lib/chatId";
 
 export async function GET() {
   await connectDB();
@@ -34,8 +35,9 @@ export async function GET() {
           await sendReminderToOwner(visit, 5, "minutes");
         }
         const updateFields = { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) };
-        if (result?.resolvedChatId) {
-          updateFields.patientChatId = String(result.resolvedChatId);
+        const chatId = normalizeChatId(result?.resolvedChatId);
+        if (chatId) {
+          updateFields.patientChatId = chatId;
         }
         await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
         sent += 1;

@@ -27,8 +27,13 @@ export async function POST(request, { params }) {
   const message = testMessages[lang];
 
   try {
-    await sendWhatsAppMessage(visit.patientPhone, message);
-    return NextResponse.json({ ok: true, message: "Mensaje de prueba enviado" });
+    const result = await sendWhatsAppMessage(visit.patientPhone, message);
+    const { normalizeChatId } = await import("@/lib/chatId");
+    const chatId = normalizeChatId(result?.resolvedChatId);
+    if (chatId) {
+      await Visit.updateOne({ _id: visit._id }, { $set: { patientChatId: chatId } });
+    }
+    return NextResponse.json({ ok: true, message: "Mensaje de prueba enviado", patientChatId: chatId });
   } catch (error) {
     return NextResponse.json(
       { error: error.message || "Error enviando mensaje" },
