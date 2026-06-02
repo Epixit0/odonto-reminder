@@ -48,18 +48,44 @@ export default function DashboardClient({ username, initialVisits = [] }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Polling para recordatorios por minuto — solo si hay pendientes
+  // Polling recordatorios modo minutos (prueba)
   useEffect(() => {
-    const hasPendingMinute = visits.some(v => v.notifyUnit === "minutes" && v.confirmationStatus === "pending");
+    const hasPendingMinute = visits.some(
+      (v) =>
+        v.notifyUnit === "minutes" &&
+        !v.sent5dPatient &&
+        (v.confirmationStatus === "pending" || !v.confirmationStatus),
+    );
     if (!hasPendingMinute) return;
 
-    // Ejecutar inmediatamente
     async function tick() {
-      try { await fetch("/api/cron/process-minute-reminders"); } catch (e) {}
+      try {
+        await fetch("/api/cron/process-minute-reminders");
+      } catch (e) {}
     }
     tick();
-
     const interval = setInterval(tick, 5000);
+    return () => clearInterval(interval);
+  }, [visits]);
+
+  // Polling citas programadas (Hobby Vercel: cron solo 1×/día; esto dispara a las 6 h antes)
+  useEffect(() => {
+    const hasPendingAppointment = visits.some(
+      (v) =>
+        v.notifyUnit !== "minutes" &&
+        !v.sent5dPatient &&
+        (v.confirmationStatus === "pending" || !v.confirmationStatus) &&
+        new Date(v.followUpDate) > new Date(),
+    );
+    if (!hasPendingAppointment) return;
+
+    async function tick() {
+      try {
+        await fetch("/api/cron/process-appointment-reminders");
+      } catch (e) {}
+    }
+    tick();
+    const interval = setInterval(tick, 60000);
     return () => clearInterval(interval);
   }, [visits]);
 
