@@ -61,7 +61,7 @@ export default function PatientRow({ visit, dateFormatter, t }) {
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
         <Link 
-          href={`/patients/${visit.patientId || visit._id}`} 
+          href={`/patients/${visit.patientId?._id || visit.patientId || visit._id}`} 
           className="font-medium text-[var(--aruba-turquoise)] hover:text-[var(--aruba-turquoise-dark)] transition-colors"
         >
           {visit.patientName}
