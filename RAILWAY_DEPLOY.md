@@ -24,53 +24,94 @@ git push -u origin main
 5. Busca tu repositorio de OpenWA
 6. Railway detectará automáticamente el Dockerfile
 
-## Paso 3: Configurar Variables de Entorno
+## Paso 3: Volumen persistente (OBLIGATORIO — sin esto pierdes el QR en cada deploy)
 
-En el dashboard de Railway, ve a tu servicio → **Variables**:
+Cada deploy en Railway **destruye el disco del contenedor**. La sesión de WhatsApp vive en archivos locales; si no hay volumen, escaneas el QR otra vez.
+
+### Configurar una sola vez
+
+1. Railway → tu servicio **OpenWA** → pestaña **Volumes** (o **Storage**)
+2. **Add Volume** / **New Volume**
+3. **Mount path**: `/app/data` (exactamente así)
+4. Tamaño: 5 GB o más
+5. **Redeploy** el servicio después de crear el volumen
+
+### Variables de entorno (rutas absolutas al volumen)
+
+Copia desde `openwa-railway.env.example` o pega esto en **Variables**:
 
 ```bash
-# Puerto
 PORT=2785
+NODE_ENV=production
 
-# Base de datos (Railway te da DATABASE_URL automáticamente)
+SESSION_DATA_PATH=/app/data/sessions
 DATABASE_TYPE=sqlite
-
-# Storage
+DATABASE_NAME=/app/data/openwa.sqlite
+DATABASE_SYNCHRONIZE=false
 STORAGE_TYPE=local
-STORAGE_LOCAL_PATH=./data/media
+STORAGE_LOCAL_PATH=/app/data/media
+PLUGINS_DIR=/app/data/plugins
 
-# Cache
+ENGINE_TYPE=whatsapp-web.js
+PUPPETEER_HEADLESS=true
+PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox,--disable-dev-shm-usage,--disable-gpu
+
 CACHE_TYPE=memory
-
-# Dashboard
 DASHBOARD_ENABLED=true
 DASHBOARD_PORT=2886
+API_MASTER_KEY=sk_openwa_TU_CLAVE_SEGURA
 
-# API Key (genera una segura)
-API_KEY=sk_openwa_$(openssl rand -hex 32)
-
-# Session
-SESSION_HEADLESS=true
+# Permisos de escritura en el volumen
+RAILWAY_RUN_UID=0
 ```
 
-**Nota**: Railway te asignará automáticamente:
-- `RAILWAY_PUBLIC_DOMAIN` (tu URL pública)
-- `PORT` (puerto asignado)
+**No uses** `./data/...` en Railway; usa siempre `/app/data/...`.
 
-## Paso 4: Configurar Volúmenes (Persistencia)
+**Nota**: Railway asigna `RAILWAY_PUBLIC_DOMAIN` y `PORT` automáticamente.
 
-Railway reinicia los contenedores y pierde datos. Necesitas un volumen:
+### Qué se guarda en el volumen
 
-1. En Railway dashboard → **Volumes**
-2. Click **"New Volume"**
-3. Mount Path: `/app/data`
-4. Size: 5GB (suficiente para empezar)
+| Ruta | Contenido |
+|------|-----------|
+| `/app/data/sessions` | Auth de WhatsApp (lo del QR) |
+| `/app/data/openwa.sqlite` | Sesiones, webhooks en DB |
+| `/app/data/media` | Archivos media |
 
-Esto guarda:
-- Sesiones de WhatsApp
-- Base de datos SQLite
-- Archivos media
-- Tokens de autenticación
+### Después del primer deploy con volumen
+
+1. Escanea el QR **una vez**
+2. Copia el **ID de sesión** (UUID) al `.env` de Vercel: `OPENWA_SESSION_ID=...`
+3. Registra el webhook (no se pierde si el volumen funciona):
+
+```bash
+./scripts/openwa-webhook.sh TU_SESSION_UUID
+```
+
+**No crees una sesión nueva** en cada deploy; reutiliza el mismo `OPENWA_SESSION_ID`.
+
+## Paso 4: Deploys sin perder la sesión
+
+| Acción | ¿Pierde QR? |
+|--------|-------------|
+| Deploy nuevo código (mismo servicio + volumen) | No |
+| Restart del servicio | No |
+| Cambiar variables (sin tocar volumen) | No |
+| Borrar el volumen | Sí |
+| Crear servicio nuevo sin volumen | Sí |
+| Cambiar mount path del volumen | Sí (datos quedan en path viejo) |
+
+**Vercel** (tu app Next.js) no afecta la sesión de OpenWA. Solo importan los redeploys de **Railway**.
+
+### Verificar persistencia
+
+```bash
+export OPENWA_API_URL=https://tu-openwa.up.railway.app
+export OPENWA_API_KEY=tu-key
+export OPENWA_SESSION_ID=tu-uuid
+./scripts/railway-openwa-check.sh
+```
+
+El estado de la sesión debería ser `READY` después de un redeploy sin escanear QR.
 
 ## Paso 5: Configurar Networking
 
@@ -149,10 +190,16 @@ OPENWA_API_KEY=TU_API_KEY
 - Verifica que el volumen esté montado correctamente
 - Asegúrate de que las variables de entorno estén seteadas
 
-### WhatsApp se desconecta
-- Esto es normal si el contenedor se reinicia
-- Con el volumen configurado, debería reconectar automáticamente
-- Si no, escanea el QR de nuevo
+### Pierdo la sesión / QR en cada deploy
+1. ¿Hay volumen montado en `/app/data`? (Railway → Volumes)
+2. ¿`SESSION_DATA_PATH=/app/data/sessions` y `DATABASE_NAME=/app/data/openwa.sqlite`?
+3. ¿`RAILWAY_RUN_UID=0`?
+4. ¿No creaste un **servicio nuevo** sin copiar el volumen?
+5. Tras arreglar variables: **un solo** escaneo de QR; guarda el UUID en Vercel
+
+### WhatsApp se desconecta temporalmente
+- Tras restart con volumen, suele reconectar solo en 1–2 min
+- Si queda en `QR` o `DISCONNECTED`, abre el dashboard y escanea de nuevo
 
 ### CORS errors
 - Asegúrate de configurar CORS en OpenWA si es necesario

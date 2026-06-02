@@ -111,7 +111,8 @@ async function sendUnrecognizedReply(visit, sessionId) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const payload = body.data ?? body;
+    // OpenWA envía: { event, sessionId, data: { from, body, ... } }
+    const payload = body.data ?? body.payload?.data ?? body;
 
     if (payload.isGroup === true) {
       return Response.json({ ok: true, message: "Ignored (group message)" });
@@ -121,9 +122,12 @@ export async function POST(request) {
       return Response.json({ ok: true, message: "Ignored (from me)" });
     }
 
-    const fromChatId = normalizeChatId(payload.from ?? payload.chatId);
+    const fromChatId = normalizeChatId(
+      payload.from ?? payload.chatId ?? payload.author,
+    );
     const text = extractIncomingText(payload);
-    const sessionId = body.sessionId || payload.sessionId || process.env.OPENWA_SESSION_ID;
+    const sessionId =
+      body.sessionId || payload.sessionId || process.env.OPENWA_SESSION_ID;
 
     if (!fromChatId || !text) {
       return Response.json({ ok: true, message: "Ignored (no data)" });
