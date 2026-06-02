@@ -4,7 +4,7 @@ import Patient from "@/models/Patient";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 import { normalizeChatId, phoneDigitsFromChatId, phoneTailDigits } from "@/lib/chatId";
 import { resolvePhoneFromChatId } from "@/lib/openwaContacts";
-import { findPendingVisit } from "@/lib/visitMatching";
+import { findPendingVisit, canAcceptPatientReply } from "@/lib/visitMatching";
 import { parseConfirmationIntent, getUnrecognizedReplyMessage } from "@/lib/confirmationIntent";
 
 function extractIncomingText(payload) {
@@ -123,10 +123,14 @@ export async function POST(request) {
 
     if (!visit) {
       console.log(`⚠️ Sin visita pendiente (chatId=${fromChatId}, dígitos=...${phoneDigits || "?"})`);
-      if (!intent) {
-        return Response.json({ ok: true, message: "No pending visit found" });
-      }
       return Response.json({ ok: true, message: "No pending visit found" });
+    }
+
+    if (!canAcceptPatientReply(visit)) {
+      console.log(
+        `⏳ Ignorado: ${visit.patientName} escribió antes del recordatorio (chatId=${fromChatId})`,
+      );
+      return Response.json({ ok: true, message: "Reminder not sent yet — ignored" });
     }
 
     if (!intent) {
