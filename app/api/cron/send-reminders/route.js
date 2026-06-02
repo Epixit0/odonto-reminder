@@ -66,11 +66,8 @@ export async function GET(request) {
     const firstReminderMatch = isMinuteMode
       ? inWindowMinutes(visit.followUpDate, 5)
       : inWindowDays(visit.followUpDate, 5);
-    const secondReminderMatch = isMinuteMode
-      ? inWindowMinutes(visit.followUpDate, 2)
-      : inWindowDays(visit.followUpDate, 2);
 
-    // Primer recordatorio (5 días/minutos antes)
+    // Primer recordatorio (5 días/minutos antes) — único envío
     if (firstReminderMatch && !visit.sent5dPatient) {
       try {
         const result = await sendReminderToPatient(visit, 5, isMinuteMode ? "minutes" : "days");
@@ -79,7 +76,7 @@ export async function GET(request) {
           await sendReminderToOwner(visit, 5, isMinuteMode ? "minutes" : "days");
         }
 
-        const updateFields = { sent5dPatient: true, sent5dOwner: Boolean(ownerPhone) };
+        const updateFields = { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) };
         // Guardar el chatId real devuelto por WhatsApp para que el webhook pueda encontrar al paciente
         if (result?.resolvedChatId) {
           updateFields.patientChatId = result.resolvedChatId;
@@ -92,26 +89,7 @@ export async function GET(request) {
       }
     }
 
-    // Segundo recordatorio (2 días/minutos antes)
-    if (secondReminderMatch && !visit.sent2dPatient) {
-      try {
-        const result = await sendReminderToPatient(visit, 2, isMinuteMode ? "minutes" : "days");
-        
-        if (ownerPhone && !visit.sent2dOwner) {
-          await sendReminderToOwner(visit, 2, isMinuteMode ? "minutes" : "days");
-        }
-
-        const updateFields = { sent2dPatient: true, sent2dOwner: Boolean(ownerPhone) };
-        if (result?.resolvedChatId) {
-          updateFields.patientChatId = result.resolvedChatId;
-        }
-        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
-        sent += 1;
-      } catch (error) {
-        console.error(`Error enviando recordatorio 2d a ${visit.patientName}:`, error);
-        errors.push({ patient: visit.patientName, error: error.message });
-      }
-    }
+    // (Solo un recordatorio — eliminado el segundo envío)
   }
 
   return NextResponse.json({ 

@@ -27,6 +27,21 @@ const VisitSchema = new Schema(
     patientResponse: { type: String, trim: true },
     respondedAt: { type: Date },
     patientChatId: { type: String, trim: true }, // ID de WhatsApp del chat
+    // Relación con Patient y nuevos campos
+    patientId: {
+      type: Schema.Types.ObjectId,
+      ref: "Patient",
+      index: true,
+    },
+    visitType: {
+      type: String,
+      enum: ["initial", "followup", "emergency", "checkup"],
+      default: "initial",
+    },
+    cost: { type: Number },
+    paid: { type: Boolean, default: false },
+    notes: { type: String, trim: true },
+    cancellationReason: { type: String, trim: true },
   },
   { timestamps: true },
 );

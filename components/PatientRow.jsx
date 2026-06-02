@@ -2,39 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Send, Loader2, CheckCircle2, XCircle, Clock, Timer } from "lucide-react";
+import { Send, Loader2, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-
-function StatusBadge({ status, t }) {
-  const configs = {
-    confirmed: {
-      icon: CheckCircle2,
-      className: "badge-confirmed",
-      label: t?.confirmed || "Confirmado",
-    },
-    pending: {
-      icon: Clock,
-      className: "badge-pending",
-      label: t?.pending || "Pendiente",
-    },
-    cancelled: {
-      icon: XCircle,
-      className: "badge-cancelled",
-      label: t?.cancelled || "Cancelado",
-    },
-  };
-
-  const config = configs[status] || configs.pending;
-  const Icon = config.icon;
-
-  return (
-    <Badge variant="outline" className={`${config.className} gap-1.5 font-medium`}>
-      <Icon className="w-3.5 h-3.5" />
-      {config.label}
-    </Badge>
-  );
-}
+import StatusBadge from "@/components/dashboard/StatusBadge";
+import Link from "next/link";
 
 function formatCountdown(seconds) {
   if (seconds <= 0) return null;
@@ -103,7 +74,12 @@ export default function PatientRow({ visit, dateFormatter, t, countdown }) {
   return (
     <tr className="hover:bg-muted/30 transition-colors">
       <td className="px-4 py-3">
-        <div className="font-medium">{visit.patientName}</div>
+        <Link 
+          href={`/patients/${visit.patientId || visit._id}`} 
+          className="font-medium text-[var(--aruba-turquoise)] hover:underline transition-colors"
+        >
+          {visit.patientName}
+        </Link>
         <div className="text-xs text-muted-foreground">
           {visit.language === "es"
             ? "🇪🇸 Español"

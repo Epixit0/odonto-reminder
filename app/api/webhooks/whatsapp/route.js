@@ -1,5 +1,6 @@
 import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
+import Patient from "@/models/Patient";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
 
 // Obtener número desde OpenWA
@@ -40,20 +41,39 @@ async function resolvePhoneFromChatId(sessionId, chatId) {
 function parseConfirmationIntent(text) {
   if (!text) return null;
   const normalized = text.toLowerCase().trim();
+  const words = normalized.split(/\s+/);
   
-  const confirmWords = [
-    "si", "sí", "yes", "ok", "okay", "confirmo", "confirmado", 
-    "asistiré", "asistire", "voy", "perfecto", "bien", "dale", 
-    "correcto", "claro", "por supuesto", "simon", "simón"
-  ];
+  // Matchear palabras completas (no substrings)
+  const isExactWord = (word, target) => {
+    if (word === target) return true;
+    // También matchear si la palabra está como token independiente
+    return false;
+  };
   
-  const cancelWords = [
-    "no", "cancelo", "cancelado", "no puedo", "no voy", "cancelar",
-    "anular", "anulo", "imposible", "otro día", "otro dia", "reagendar"
-  ];
+  // Frases completas tienen prioridad
+  const confirmPhrases = ["por supuesto"];
+  const cancelPhrases = ["no puedo", "no voy", "otro día", "otro dia"];
   
-  if (confirmWords.some(word => normalized.includes(word))) return "confirmed";
-  if (cancelWords.some(word => normalized.includes(word))) return "cancelled";
+  if (confirmPhrases.some(phrase => normalized.includes(phrase))) return "confirmed";
+  if (cancelPhrases.some(phrase => normalized.includes(phrase))) return "cancelled";
+  
+  // Palabras individuales
+  const confirmWords = new Set([
+    "si", "sí", "yes", "ok", "okay", "confirmo", "confirmado",
+    "asistiré", "asistire", "voy", "perfecto", "bien", "dale",
+    "correcto", "claro", "simon", "simón",
+  ]);
+  
+  const cancelWords = new Set([
+    "no", "cancelo", "cancelado", "cancelar",
+    "anular", "anulo", "imposible", "reagendar",
+  ]);
+  
+  for (const word of words) {
+    if (confirmWords.has(word)) return "confirmed";
+    if (cancelWords.has(word)) return "cancelled";
+  }
+  
   return null;
 }
 
@@ -63,20 +83,20 @@ function formatDate(date) {
   });
 }
 
-async function notifyOwnerOfResponse(visit, status) {
+async function notifyOwnerOfResponse(visit, status, sessionId) {
   const ownerPhone = process.env.OWNER_WHATSAPP_PHONE;
   if (!ownerPhone) return;
   const emoji = status === "confirmed" ? "✅" : "❌";
   const text = status === "confirmed" ? "CONFIRMADO" : "CANCELADO";
   const message = `📋 *Respuesta de Paciente*\n\n${visit.patientName} ha *${text}* su cita.\n📅 Fecha: ${formatDate(visit.followUpDate)}\n📱 Teléfono: ${visit.patientPhone}\n🦷 Tratamiento: ${visit.treatmentType}\n\n${emoji} ${text}`;
   try {
-    await sendWhatsAppMessage(ownerPhone, message);
+    await sendWhatsAppMessage(ownerPhone, message, sessionId);
   } catch (error) {
     console.error("❌ Error notificando al odontólogo:", error);
   }
 }
 
-async function respondToPatient(phone, status, language = "es") {
+async function respondToPatient(phone, status, language = "es", sessionId) {
   const messages = {
     es: {
       confirmed: "✅ *¡Gracias!*\n\nSu cita ha sido confirmada. Lo esperamos en la clínica.",
@@ -93,7 +113,7 @@ async function respondToPatient(phone, status, language = "es") {
   };
   const lang = messages[language] ? language : "es";
   try {
-    await sendWhatsAppMessage(phone, messages[lang][status]);
+    await sendWhatsAppMessage(phone, messages[lang][status], sessionId);
   } catch (error) {
     console.error("❌ Error respondiendo al paciente:", error);
   }
@@ -120,7 +140,8 @@ export async function POST(request) {
     
     const fromChatId = payload.from || payload.chatId;
     const text = payload.body || payload.text || payload.message;
-    const sessionId = body.sessionId;
+    // sessionId puede venir en distintos lugares según la versión de OpenWA
+    const sessionId = body.sessionId || payload.sessionId || process.env.OPENWA_SESSION_ID;
 
     if (!fromChatId || !text) {
       return Response.json({ ok: true, message: "Ignored (no data)" });
@@ -131,6 +152,21 @@ export async function POST(request) {
     const intent = parseConfirmationIntent(text);
     if (!intent) {
       console.log(`🤔 No se pudo determinar intención (texto: "${text}")`);
+      // Auto-respuesta: el paciente no entendió el mensaje
+      await connectDB();
+      const pendingVisit = await Visit.findOne({
+        patientChatId: fromChatId,
+        confirmationStatus: "pending",
+      });
+      if (pendingVisit) {
+        const lang = pendingVisit.language || "es";
+        const autoMessages = {
+          es: "🤖 *Esto es un mensaje automático*\n\nSolo reconozco respuestas como *SI* o *NO* para confirmar o cancelar su cita. Si necesita ayuda, por favor contacte a la clínica directamente por teléfono.\n\nGracias 🙏",
+          en: "🤖 *This is an automated message*\n\nI only recognize replies like *YES* or *NO* to confirm or cancel your appointment. If you need help, please contact the clinic directly.\n\nThank you 🙏",
+          pap: "🤖 *Es un mensahe automático*\n\nMi ta reconoce solamente respuesta como *SI* of *NO* pa confirmá of cancela bo cita. Si bo ke ayuda, por fabor contacta e clinica direktamente.\n\nDanki 🙏",
+        };
+        await sendWhatsAppMessage(pendingVisit.patientPhone, autoMessages[lang] || autoMessages.es, sessionId);
+      }
       return Response.json({ ok: true, message: "No intent detected" });
     }
     console.log(`🎯 Intención: ${intent}`);
@@ -236,8 +272,15 @@ export async function POST(request) {
     visit.patientChatId = fromChatId;
     await visit.save();
 
-    await respondToPatient(visit.patientPhone, intent, visit.language);
-    await notifyOwnerOfResponse(visit, intent);
+    // Actualizar lastActivity del Patient si existe
+    if (visit.patientId) {
+      await Patient.findByIdAndUpdate(visit.patientId, {
+        lastActivity: new Date(),
+      });
+    }
+
+    await respondToPatient(visit.patientPhone, intent, visit.language, sessionId);
+    await notifyOwnerOfResponse(visit, intent, sessionId);
 
     return Response.json({ ok: true, message: `Visit updated to ${intent}`, patient: visit.patientName });
 

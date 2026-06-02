@@ -25,11 +25,11 @@ export async function GET() {
     ],
   }).lean();
 
-  // Limpiar flag de re-envío para visitas que enviaron recordatorio pero no tienen patientChatId
-  // Esto permite que el cron re-intente capturar el lid real con el OpenWA corregido
+  // Marcar TODAS las visitas que ya tienen recordatorio enviado pero no patientChatId
+  // para que NO se sigan re-enviando
   await Visit.updateMany(
-    { sent5dPatient: true, patientChatId: { $exists: false }, resendingChatId: true },
-    { $unset: { resendingChatId: 1 } }
+    { sent5dPatient: true, patientChatId: { $exists: false } },
+    { $set: { resendingChatId: true } }
   );
 
   const ownerPhone = process.env.OWNER_WHATSAPP_PHONE;
@@ -63,26 +63,6 @@ export async function GET() {
         console.log(`✅ Recordatorio enviado a ${visit.patientName} (${notifyValue}min después de registro)`);
       } catch (error) {
         console.error(`Error enviando recordatorio a ${visit.patientName}:`, error);
-      }
-    }
-
-    // Si ya se envió el recordatorio pero no tenemos el patientChatId,
-    // re-enviar para capturarlo (máximo una vez, controlado con un flag)
-    if (visit.sent5dPatient && !visit.patientChatId && !visit.resendingChatId) {
-      try {
-        console.log(`🔄 Re-enviando recordatorio a ${visit.patientName} para capturar chatId...`);
-        const result = await sendReminderToPatient(visit, 5, "minutes");
-        // Marcar que ya intentamos re-enviar para no spamear
-        const updateFields = { resendingChatId: true };
-        if (result?.resolvedChatId) {
-          updateFields.patientChatId = result.resolvedChatId;
-          console.log(`✅ chatId guardado para ${visit.patientName}: ${result.resolvedChatId}`);
-        }
-        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
-        sent += 1;
-      } catch (error) {
-        console.error(`Error re-enviando a ${visit.patientName}:`, error);
-        await Visit.updateOne({ _id: visit._id }, { $set: { resendingChatId: true } });
       }
     }
 

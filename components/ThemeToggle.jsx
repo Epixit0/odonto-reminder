@@ -1,32 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState(true);
-
-  function toggleTheme() {
-    const currentDark = document.documentElement.classList.contains("dark");
-    const nextDark = !currentDark;
-    setIsDark(nextDark);
-
-    if (nextDark) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    }
-  }
+  const { theme, setTheme } = useTheme();
 
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="app-button-secondary rounded-lg px-3 py-2 text-sm"
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+      className="rounded-full"
       aria-label="Cambiar tema"
     >
-      {isDark ? "☀️ Claro" : "🌙 Oscuro"}
-    </button>
+      <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+    </Button>
   );
 }

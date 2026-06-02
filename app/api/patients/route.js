@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getSession } from "@/lib/auth";
 import Visit from "@/models/Visit";
+import Patient from "@/models/Patient";
 
 function addFollowUpDate(dateString, value, unit) {
   // Parse YYYY-MM-DD como fecha local, no UTC
@@ -28,7 +29,11 @@ export async function GET() {
   }
 
   await connectDB();
-  const items = await Visit.find({}).sort({ createdAt: -1 }).limit(200).lean();
+  const items = await Visit.find({})
+    .populate("patientId", "name phone tags totalVisits")
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .lean();
   return NextResponse.json({ items });
 }
 
@@ -74,6 +79,35 @@ export async function POST(request) {
   );
 
   await connectDB();
+
+  // 1. Buscar o crear Patient
+  let patient = await Patient.findOne({ phone: patientPhone });
+  const now = new Date();
+
+  if (!patient) {
+    patient = await Patient.create({
+      name: patientName,
+      phone: patientPhone,
+      language: language || "es",
+      totalVisits: 1,
+      firstContactDate: now,
+      lastVisitDate: parsedTreatmentDate,
+      nextAppointmentDate: followUpDate,
+      lastActivity: now,
+      tags: ["nuevo"],
+    });
+  } else {
+    patient.totalVisits = (patient.totalVisits || 0) + 1;
+    patient.lastVisitDate = parsedTreatmentDate;
+    patient.nextAppointmentDate = followUpDate;
+    patient.lastActivity = now;
+    if (!patient.tags.includes("recurrente") && patient.totalVisits >= 3) {
+      patient.tags.push("recurrente");
+    }
+    await patient.save();
+  }
+
+  // 2. Crear Visit vinculado al Patient
   const created = await Visit.create({
     patientName,
     patientPhone,
@@ -83,7 +117,8 @@ export async function POST(request) {
     followUpDate,
     notifyUnit: safeNotifyUnit,
     notifyValue: safeNotifyValue,
+    patientId: patient._id,
   });
 
-  return NextResponse.json({ item: created }, { status: 201 });
+  return NextResponse.json({ item: created, patient }, { status: 201 });
 }
