@@ -2,44 +2,10 @@ import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
 import Patient from "@/models/Patient";
 import { sendWhatsAppMessage } from "@/lib/whatsapp";
-import { normalizeChatId, phoneTailDigits } from "@/lib/chatId";
+import { normalizeChatId, phoneDigitsFromChatId, phoneTailDigits } from "@/lib/chatId";
+import { resolvePhoneFromChatId } from "@/lib/openwaContacts";
 import { findPendingVisit } from "@/lib/visitMatching";
 import { parseConfirmationIntent, getUnrecognizedReplyMessage } from "@/lib/confirmationIntent";
-
-async function resolvePhoneFromChatId(sessionId, chatId) {
-  const baseUrl = process.env.OPENWA_API_URL;
-  const apiKey = process.env.OPENWA_API_KEY;
-  if (!baseUrl || !apiKey || !sessionId || !chatId) return null;
-
-  try {
-    if (chatId.endsWith("@lid")) {
-      const encoded = encodeURIComponent(chatId);
-      const res = await fetch(
-        `${baseUrl.replace(/\/$/, "")}/api/sessions/${encodeURIComponent(sessionId)}/contacts/${encoded}`,
-        { headers: { "X-API-Key": apiKey } },
-      );
-      if (!res.ok) return null;
-      const json = await res.json();
-      const data = json.data ?? json;
-      const number = data?.number ?? data?.phoneNumber ?? null;
-      return number ? { number: String(number) } : null;
-    }
-
-    const digits = chatId.replace(/\D/g, "");
-    if (!digits) return null;
-
-    const res = await fetch(
-      `${baseUrl.replace(/\/$/, "")}/api/sessions/${encodeURIComponent(sessionId)}/contacts/check/${digits}`,
-      { headers: { "X-API-Key": apiKey } },
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const data = json.data ?? json;
-    return { number: data?.number || digits };
-  } catch {
-    return null;
-  }
-}
 
 function extractIncomingText(payload) {
   if (!payload) return null;
@@ -139,7 +105,8 @@ export async function POST(request) {
 
     await connectDB();
 
-    let phoneDigits = phoneTailDigits(fromChatId, 10);
+    let phoneDigits = phoneDigitsFromChatId(fromChatId);
+    let resolvedChatId = fromChatId;
 
     if ((!phoneDigits || phoneDigits.length < 8) && sessionId) {
       const contactInfo = await resolvePhoneFromChatId(sessionId, fromChatId);
@@ -147,9 +114,12 @@ export async function POST(request) {
         phoneDigits = phoneTailDigits(contactInfo.number, 10);
         console.log(`📞 Teléfono resuelto vía OpenWA: ...${phoneDigits}`);
       }
+      if (contactInfo?.chatId) {
+        resolvedChatId = contactInfo.chatId;
+      }
     }
 
-    let visit = await findPendingVisit({ fromChatId, phoneDigits });
+    let visit = await findPendingVisit({ fromChatId, phoneDigits, resolvedChatId });
 
     if (!visit) {
       console.log(`⚠️ Sin visita pendiente (chatId=${fromChatId}, dígitos=...${phoneDigits || "?"})`);
