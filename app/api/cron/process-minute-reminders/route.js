@@ -3,17 +3,6 @@ import { connectDB } from "@/lib/db";
 import Visit from "@/models/Visit";
 import { sendReminderToPatient, sendReminderToOwner } from "@/lib/whatsapp";
 
-function inWindowFromCreated(createdAt, minutesAfter) {
-  const now = new Date();
-  const start = new Date(now.getTime() - 30 * 1000);
-  const end = new Date(now.getTime() + 30 * 1000);
-
-  const target = new Date(createdAt);
-  target.setMinutes(target.getMinutes() + minutesAfter);
-
-  return target >= start && target <= end;
-}
-
 export async function GET() {
   await connectDB();
 
@@ -23,29 +12,22 @@ export async function GET() {
       { confirmationStatus: { $exists: false } },
       { confirmationStatus: "pending" },
     ],
+    sent5dPatient: false,
   }).lean();
-
-  // Marcar TODAS las visitas que ya tienen recordatorio enviado pero no patientChatId
-  // para que NO se sigan re-enviando
-  await Visit.updateMany(
-    { sent5dPatient: true, patientChatId: { $exists: false } },
-    { $set: { resendingChatId: true } }
-  );
 
   const ownerPhone = process.env.OWNER_WHATSAPP_PHONE;
   let sent = 0;
-  let pending = 0;
-  const nextReminders = [];
   const now = new Date();
 
   for (const visit of visits) {
     const createdAt = new Date(visit.createdAt);
     const notifyValue = visit.notifyValue || 1;
-    const diffSec = Math.round((now.getTime() - createdAt.getTime()) / 1000);
-    const remainingSec = (notifyValue * 60) - diffSec; // segundos que faltan para el recordatorio
+    const diffMs = now.getTime() - createdAt.getTime();
+    const diffSec = Math.round(diffMs / 1000);
+    const targetSec = notifyValue * 60;
 
-    // Recordatorio único: notifyValue minutos después de creado
-    if (!visit.sent5dPatient && inWindowFromCreated(createdAt, notifyValue)) {
+    // Si ya pasó el tiempo del recordatorio y no se ha enviado → enviar
+    if (diffSec >= targetSec) {
       try {
         const result = await sendReminderToPatient(visit, 5, "minutes");
         if (ownerPhone && !visit.sent5dOwner) {
@@ -53,32 +35,16 @@ export async function GET() {
         }
         const updateFields = { sent5dPatient: true, sent2dPatient: true, sent5dOwner: Boolean(ownerPhone), sent2dOwner: Boolean(ownerPhone) };
         if (result?.resolvedChatId) {
-          updateFields.patientChatId = result.resolvedChatId;
+          updateFields.patientChatId = String(result.resolvedChatId);
         }
-        await Visit.updateOne(
-          { _id: visit._id },
-          { $set: updateFields },
-        );
+        await Visit.updateOne({ _id: visit._id }, { $set: updateFields });
         sent += 1;
-        console.log(`✅ Recordatorio enviado a ${visit.patientName} (${notifyValue}min después de registro)`);
+        console.log(`✅ Recordatorio enviado a ${visit.patientName} (${diffSec}s después de registro)`);
       } catch (error) {
         console.error(`Error enviando recordatorio a ${visit.patientName}:`, error);
       }
     }
-
-    // Calcular próximos recordatorios para mostrar countdown
-    if (remainingSec > 0 && remainingSec < 600) {
-      if (!visit.sent5dPatient) {
-        nextReminders.push({
-          id: visit._id,
-          name: visit.patientName,
-          type: `${notifyValue}min`,
-          secondsUntilReminder: remainingSec,
-        });
-      }
-      pending++;
-    }
   }
 
-  return NextResponse.json({ ok: true, sent, pending, nextReminders });
+  return NextResponse.json({ ok: true, sent, pending: visits.length - sent });
 }

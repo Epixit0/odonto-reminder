@@ -33,7 +33,7 @@ export default function DashboardClient({ username, initialVisits = [] }) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Recarga silenciosa de visitas cada 30s para reflejar confirmaciones
+  // Recarga de visitas cada 30s para confirmaciones entrantes
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -41,12 +41,25 @@ export default function DashboardClient({ username, initialVisits = [] }) {
         if (!res.ok) return;
         const data = await res.json();
         setVisits(data.items || []);
-      } catch (e) {
-        // silencio
-      }
+      } catch (e) {}
     }, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Polling para recordatorios por minuto — solo si hay pendientes
+  useEffect(() => {
+    const hasPendingMinute = visits.some(v => v.notifyUnit === "minutes" && v.confirmationStatus === "pending");
+    if (!hasPendingMinute) return;
+
+    // Ejecutar inmediatamente
+    async function tick() {
+      try { await fetch("/api/cron/process-minute-reminders"); } catch (e) {}
+    }
+    tick();
+
+    const interval = setInterval(tick, 20000);
+    return () => clearInterval(interval);
+  }, [visits]);
 
   const stats = useMemo(() => {
     const now = new Date();
