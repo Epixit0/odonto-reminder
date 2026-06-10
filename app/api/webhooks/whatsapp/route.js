@@ -8,6 +8,12 @@ import { findPendingVisit, canAcceptPatientReply } from "@/lib/visitMatching";
 import { parseConfirmationIntent, getUnrecognizedReplyMessage } from "@/lib/confirmationIntent";
 import { CLINIC_NAME } from "@/lib/reminders";
 import { formatAppointmentDateTime } from "@/lib/formatAppointment";
+import { verifyWebhookSignature } from "@/lib/webhook-verify";
+import { sanitizeWhatsAppBody } from "@/lib/sanitize";
+import { createLogger } from "@/lib/logger";
+import { logAudit } from "@/lib/audit";
+
+const log = createLogger("api/webhooks/whatsapp");
 
 function extractIncomingText(payload) {
   if (!payload) return null;
@@ -40,7 +46,7 @@ async function notifyOwnerOfResponse(visit, status, sessionId) {
   try {
     await sendWhatsAppMessage(ownerPhone, message, sessionId);
   } catch (error) {
-    console.error("❌ Error notificando al odontólogo:", error);
+    log.error(error, "Error notificando al odontólogo");
   }
 }
 
@@ -63,7 +69,7 @@ async function respondToPatient(phone, status, language = "es", sessionId) {
   try {
     await sendWhatsAppMessage(phone, messages[lang][status], sessionId);
   } catch (error) {
-    console.error("❌ Error respondiendo al paciente:", error);
+    log.error(error, "Error respondiendo al paciente");
   }
 }
 
@@ -74,7 +80,23 @@ async function sendUnrecognizedReply(visit, sessionId) {
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    // 1. Verificar firma HMAC del webhook
+    const rawBody = await request.text();
+    const signature = request.headers.get("x-webhook-signature");
+    
+    // Parse manual para no consumir el body dos veces
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return Response.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
+    if (!verifyWebhookSignature(rawBody, signature)) {
+      log.warn("Webhook rechazado — firma inválida");
+      return Response.json({ error: "Invalid signature" }, { status: 401 });
+    }
+
     // OpenWA envía: { event, sessionId, data: { from, body, ... } }
     const payload = body.data ?? body.payload?.data ?? body;
 
@@ -89,7 +111,8 @@ export async function POST(request) {
     const fromChatId = normalizeChatId(
       payload.from ?? payload.chatId ?? payload.author,
     );
-    const text = extractIncomingText(payload);
+    const rawText = extractIncomingText(payload);
+    const text = sanitizeWhatsAppBody(rawText || "");
     const sessionId =
       body.sessionId || payload.sessionId || process.env.OPENWA_SESSION_ID;
 
@@ -97,7 +120,7 @@ export async function POST(request) {
       return Response.json({ ok: true, message: "Ignored (no data)" });
     }
 
-    console.log(`📩 Mensaje de: ${fromChatId} — "${text}"`);
+    log.info({ from: fromChatId, text }, "Mensaje entrante");
 
     const intent = parseConfirmationIntent(text);
 
@@ -110,7 +133,7 @@ export async function POST(request) {
       const contactInfo = await resolvePhoneFromChatId(sessionId, fromChatId);
       if (contactInfo?.number) {
         phoneDigits = phoneTailDigits(contactInfo.number, 10);
-        console.log(`📞 Teléfono resuelto vía OpenWA: ...${phoneDigits}`);
+        log.info({ phoneDigits }, "Teléfono resuelto vía OpenWA");
       }
       if (contactInfo?.chatId) {
         resolvedChatId = contactInfo.chatId;
@@ -120,30 +143,37 @@ export async function POST(request) {
     let visit = await findPendingVisit({ fromChatId, phoneDigits, resolvedChatId });
 
     if (!visit) {
-      console.log(`⚠️ Sin visita pendiente (chatId=${fromChatId}, dígitos=...${phoneDigits || "?"})`);
+      log.warn({ fromChatId, phoneDigits }, "Sin visita pendiente");
       return Response.json({ ok: true, message: "No pending visit found" });
     }
 
     if (!canAcceptPatientReply(visit)) {
-      console.log(
-        `⏳ Ignorado: ${visit.patientName} escribió antes del recordatorio (chatId=${fromChatId})`,
-      );
+      log.warn({ patientName: visit.patientName, chatId: fromChatId }, "Paciente respondió antes del recordatorio");
       return Response.json({ ok: true, message: "Reminder not sent yet — ignored" });
     }
 
     if (!intent) {
-      console.log(`🤔 Sin intención clara: "${text}"`);
+      log.info({ text }, "Sin intención clara");
       await sendUnrecognizedReply(visit, sessionId);
       return Response.json({ ok: true, message: "No intent detected" });
     }
 
-    console.log(`🎯 ${visit.patientName} → ${intent}`);
+    log.info({ patientName: visit.patientName, intent }, "Intención detectada");
 
     visit.confirmationStatus = intent;
     visit.patientResponse = text;
     visit.respondedAt = new Date();
     visit.patientChatId = fromChatId;
     await visit.save();
+
+    // Log de auditoría
+    await logAudit({
+      action: intent === "confirmed" ? "confirm" : "cancel",
+      resource: "visit",
+      resourceId: visit._id,
+      details: { patientName: visit.patientName, response: text },
+      username: visit.patientName,
+    });
 
     if (visit.patientId) {
       await Patient.findByIdAndUpdate(visit.patientId, { lastActivity: new Date() });
@@ -158,7 +188,7 @@ export async function POST(request) {
       patient: visit.patientName,
     });
   } catch (error) {
-    console.error("❌ Error en webhook:", error);
+    log.error(error, "Error en webhook");
     return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

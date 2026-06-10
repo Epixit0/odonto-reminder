@@ -1,8 +1,9 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { t as tHelper } from "@/lib/i18n";
 
-export default function StatCard({ title, value, icon: Icon, color, subtitle }) {
+export default function StatCard({ title, value, icon: Icon, color, subtitle, dict }) {
   const colorMap = {
     "aruba-turquoise": { bg: "bg-[var(--aruba-turquoise)]/10", text: "text-[var(--aruba-turquoise)]" },
     confirmed: { bg: "bg-[var(--confirmed)]/10", text: "text-[var(--confirmed)]" },
@@ -11,12 +12,17 @@ export default function StatCard({ title, value, icon: Icon, color, subtitle }) 
   };
   const style = colorMap[color] || colorMap["aruba-turquoise"];
 
+  // Si title es una clave de traducción, traducirla
+  const isKey = dict && title?.includes(" ") === false && title?.length < 30;
+
   return (
     <Card className="glass-card hover-lift overflow-hidden group">
       <CardContent className="p-4 sm:p-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{title}</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {isKey ? tHelper(dict, title) : title}
+            </p>
             <p className="text-2xl sm:text-3xl font-bold tabular-nums">{value}</p>
             {subtitle && (
               <p className="text-xs text-muted-foreground">{subtitle}</p>

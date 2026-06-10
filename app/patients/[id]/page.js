@@ -8,39 +8,28 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { t as tHelper } from "@/lib/i18n";
 
 export default async function PatientProfilePage({ params }) {
   const session = await getSession();
   if (!session?.username) {
-    return notFound(); // O redirigir a login, pero notFound es seguro aquí
+    return notFound();
   }
 
   const { id } = await params;
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/patients/${id}`, {
-    headers: {
-      Cookie: `auth_token=${process.env.TEST_AUTH_TOKEN || ""}`, // Nota: en producción, pasar la cookie real o usar un patrón diferente
-    },
-    cache: "no-store",
-  });
+  const lang = "es";
+  const dict = getDictionary(lang);
 
-  // Fallback si la cookie no se pasa bien en SSR, hacemos la consulta directa a la DB
-  // Para simplificar en este ejemplo, asumimos que el fetch con cookie funciona o hacemos la lógica en el cliente.
-  // Mejor: hacer la lógica de DB directamente en el Server Component para evitar problemas de auth en fetch interno.
-  
   const { connectDB } = await import("@/lib/db");
   const Patient = (await import("@/models/Patient")).default;
   const Visit = (await import("@/models/Visit")).default;
 
   await connectDB();
   const patient = await Patient.findById(id).lean();
-  if (!patient) {
-    return notFound();
-  }
+  if (!patient) return notFound();
 
   const visits = await Visit.find({ patientId: id }).sort({ treatmentDate: -1 }).lean();
 
-  const lang = "es"; // Podría venir de la URL o preferencia del usuario
-  const t = getDictionary(lang);
   const dateFormatter = new Intl.DateTimeFormat("es-ES", {
     timeZone: "UTC",
     year: "numeric",
@@ -52,49 +41,49 @@ export default async function PatientProfilePage({ params }) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <header className="sticky top-0 z-50 glass border-b border-white/20 dark:border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-14 sm:h-16">
             <div className="flex items-center gap-4">
               <Link href="/dashboard">
-                <Button variant="ghost" size="sm" className="gap-2">
+                <Button variant="ghost" size="sm" className="gap-2 text-xs sm:text-sm">
                   <ArrowLeft className="w-4 h-4" />
-                  Volver al Dashboard
+                  {tHelper(dict, "backToDashboard")}
                 </Button>
               </Link>
-              <h1 className="text-lg font-bold text-gradient-hero">Historial del Paciente</h1>
+              <h1 className="text-base sm:text-lg font-bold text-gradient-hero hidden sm:block">
+                {tHelper(dict, "patientProfile")}
+              </h1>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Hero del Paciente */}
-        <Card className="glass-card mb-8 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[var(--aruba-turquoise)] to-[var(--aruba-orange)] flex items-center justify-center text-white text-3xl font-bold shadow-aruba">
+        <Card className="glass-card mb-6 sm:mb-8 overflow-hidden">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-[var(--aruba-turquoise)] to-[var(--aruba-orange)] flex items-center justify-center text-white text-2xl sm:text-3xl font-bold shadow-aruba shrink-0">
                 {patient.name.charAt(0).toUpperCase()}
               </div>
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold mb-2">{patient.name}</h2>
-                <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl sm:text-3xl font-bold mb-1 sm:mb-2 truncate">{patient.name}</h2>
+                <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                   <div className="flex items-center gap-1">
-                    <Phone className="w-4 h-4" />
-                    {patient.phone}
+                    <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                    <span className="truncate">{patient.phone}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Globe className="w-4 h-4" />
+                    <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                     {patient.language === "es" ? "Español" : patient.language === "en" ? "English" : "Papiamento"}
                   </div>
-                  {patient.tags && patient.tags.length > 0 && (
-                    <div className="flex items-center gap-1">
-                      <Tag className="w-4 h-4" />
-                      <div className="flex gap-1">
-                        {patient.tags.map((tag, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
+                  {patient.tags?.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <Tag className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                      {patient.tags.map((tag, i) => (
+                        <Badge key={i} variant="secondary" className="text-[10px] sm:text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -104,15 +93,19 @@ export default async function PatientProfilePage({ params }) {
         </Card>
 
         {/* Estadísticas */}
-        <div className="mb-8">
-          <h3 className="text-xl font-semibold mb-4">Resumen de Actividad</h3>
-          <PatientStats visits={visits} />
+        <div className="mb-6 sm:mb-8">
+          <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
+            {tHelper(dict, "activitySummary")}
+          </h3>
+          <PatientStats visits={visits} dict={dict} />
         </div>
 
         {/* Timeline */}
         <div>
-          <h3 className="text-xl font-semibold mb-4">Historial de Visitas</h3>
-          <PatientTimeline visits={visits} dateFormatter={dateFormatter} t={t} />
+          <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
+            {tHelper(dict, "visitHistory")}
+          </h3>
+          <PatientTimeline visits={visits} dateFormatter={dateFormatter} dict={dict} />
         </div>
       </main>
     </div>

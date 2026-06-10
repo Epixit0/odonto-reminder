@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Plus, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { t as tHelper } from "@/lib/i18n";
+import PatientCombobox from "@/components/dashboard/PatientCombobox";
 
 const COUNTRY_OPTIONS = [
   { code: "+297", shortLabel: "AW +297", fullLabel: "🇦🇼 Aruba (+297)", minDigits: 7, maxDigits: 7 },
@@ -34,7 +36,7 @@ function splitDateTime(dateTimeLocal) {
   return { appointmentDate, appointmentTime: appointmentTime.slice(0, 5) };
 }
 
-export default function PatientForm({ onSuccess, t }) {
+export default function PatientForm({ onSuccess, dict }) {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -51,9 +53,27 @@ export default function PatientForm({ onSuccess, t }) {
   const isMinuteTest = form.notifyUnit === "minutes";
 
   const selectedCountry = useMemo(
-    () => COUNTRY_OPTIONS.find((country) => country.code === form.countryCode) || COUNTRY_OPTIONS[0],
+    () => COUNTRY_OPTIONS.find((c) => c.code === form.countryCode) || COUNTRY_OPTIONS[0],
     [form.countryCode],
   );
+
+  const handlePatientSelect = useCallback((patient) => {
+    if (patient._id) {
+      // Paciente existente seleccionado — auto-rellenar
+      const code = patient.phone.replace(/\d/g, "").trim();
+      const local = patient.phone.replace(/\D/g, "").slice(-10);
+      setForm((prev) => ({
+        ...prev,
+        patientName: patient.name,
+        countryCode: code || prev.countryCode,
+        localPhone: local,
+        language: patient.language || prev.language,
+      }));
+    } else {
+      // Nuevo paciente — solo el nombre
+      setForm((prev) => ({ ...prev, patientName: patient.name }));
+    }
+  }, []);
 
   function handleCountryChange(code) {
     const country = COUNTRY_OPTIONS.find((item) => item.code === code) || COUNTRY_OPTIONS[0];
@@ -83,7 +103,7 @@ export default function PatientForm({ onSuccess, t }) {
 
     const digits = form.localPhone.replace(/\D/g, "");
     if (digits.length < selectedCountry.minDigits || digits.length > selectedCountry.maxDigits) {
-      toast.error(`Número inválido para ${selectedCountry.fullLabel}`);
+      toast.error(tHelper(dict, "errorInvalidPhone", { country: selectedCountry.fullLabel }));
       setSaving(false);
       return;
     }
@@ -110,12 +130,12 @@ export default function PatientForm({ onSuccess, t }) {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error guardando paciente");
+      if (!res.ok) throw new Error(data.error || tHelper(dict, "errorSave"));
 
       toast.success(
         isMinuteTest
-          ? "Paciente registrado — recordatorio en ~1 minuto"
-          : "Paciente registrado — recordatorio 6 h antes de la cita",
+          ? tHelper(dict, "savedMinutes", { min: form.notifyValue })
+          : tHelper(dict, "savedSuccess"),
       );
       setForm({
         patientName: "",
@@ -130,29 +150,29 @@ export default function PatientForm({ onSuccess, t }) {
       setShowForm(false);
       onSuccess?.();
     } catch (error) {
-      toast.error(error.message || "Error al guardar el paciente");
+      toast.error(error.message || tHelper(dict, "errorSave"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Card className="glass-card mb-8 overflow-hidden">
+    <Card className="glass-card mb-4 sm:mb-8 overflow-hidden">
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-[var(--aruba-turquoise)]/10">
               <Plus className="w-5 h-5 text-[var(--aruba-turquoise)]" />
             </div>
             <div>
-              <CardTitle className="text-lg">{t?.dashboardTitle || "Registro de pacientes"}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Dent Q Clinic — cita con hora o modo prueba (minutos)
+              <CardTitle className="text-base sm:text-lg">{tHelper(dict, "dashboardRegister")}</CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground">
+                {tHelper(dict, "dashboardSubtitle")}
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={() => setShowForm(!showForm)} className="gap-2">
-            {showForm ? "Ocultar formulario" : "Nuevo paciente"}
+          <Button variant="outline" onClick={() => setShowForm(!showForm)} className="gap-2 text-xs sm:text-sm">
+            {showForm ? tHelper(dict, "hideForm") : tHelper(dict, "showForm")}
             <ChevronDown className={`w-4 h-4 transition-transform ${showForm ? "rotate-180" : ""}`} />
           </Button>
         </div>
@@ -160,23 +180,22 @@ export default function PatientForm({ onSuccess, t }) {
 
       {showForm && (
         <CardContent className="pt-0 animate-slide-up">
-          <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">{t?.patientName || "Nombre"}</Label>
-              <Input
-                placeholder="Nombre completo"
+          <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {/* Combobox de búsqueda de pacientes */}
+            <div className="sm:col-span-2 lg:col-span-3 space-y-1.5 sm:space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "patientName")}</Label>
+              <PatientCombobox
                 value={form.patientName}
-                onChange={(e) => setForm((p) => ({ ...p, patientName: e.target.value }))}
-                required
-                className="input-aruba"
+                onChange={handlePatientSelect}
+                dict={dict}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">{t?.patientPhone || "WhatsApp"}</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "patientPhone")}</Label>
               <div className="flex gap-2">
                 <Select value={form.countryCode} onValueChange={handleCountryChange}>
-                  <SelectTrigger className="w-[140px]">
+                  <SelectTrigger className="w-[110px] sm:w-[140px] h-10 sm:h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -188,59 +207,59 @@ export default function PatientForm({ onSuccess, t }) {
                   </SelectContent>
                 </Select>
                 <Input
-                  placeholder={`${selectedCountry.minDigits}-${selectedCountry.maxDigits} dígitos`}
+                  placeholder={tHelper(dict, "phoneDigits", { min: selectedCountry.minDigits, max: selectedCountry.maxDigits })}
                   value={form.localPhone}
                   onChange={(e) => handleLocalPhoneChange(e.target.value)}
                   inputMode="numeric"
                   pattern="[0-9]*"
                   maxLength={selectedCountry.maxDigits}
                   required
-                  className="input-aruba flex-1"
+                  className="input-aruba flex-1 h-10 sm:h-11"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Idioma de mensajes</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "language")}</Label>
               <Select value={form.language} onValueChange={(value) => setForm((p) => ({ ...p, language: value }))}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="pap">Papiamento</SelectItem>
+                  <SelectItem value="es">{tHelper(dict, "spanish")}</SelectItem>
+                  <SelectItem value="en">{tHelper(dict, "english")}</SelectItem>
+                  <SelectItem value="pap">{tHelper(dict, "papiamento")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">{t?.treatment || "Tratamiento"}</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "treatment")}</Label>
               <Input
-                placeholder="Tipo de tratamiento"
+                placeholder={tHelper(dict, "treatmentPlaceholder")}
                 value={form.treatmentType}
                 onChange={(e) => setForm((p) => ({ ...p, treatmentType: e.target.value }))}
                 required
-                className="input-aruba"
+                className="input-aruba h-10 sm:h-11"
               />
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Tipo de recordatorio</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "reminderType")}</Label>
               <Select value={form.notifyUnit} onValueChange={handleNotifyUnitChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="appointment">Cita programada (6 h antes)</SelectItem>
-                  <SelectItem value="minutes">Minutos — prueba rápida</SelectItem>
+                  <SelectItem value="appointment">{tHelper(dict, "reminderAppointment")}</SelectItem>
+                  <SelectItem value="minutes">{tHelper(dict, "reminderMinutes")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {isMinuteTest ? (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Enviar recordatorio en</Label>
+              <div className="space-y-1.5 sm:space-y-2">
+                <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "reminderSendIn")}</Label>
                 <div className="flex items-center gap-2">
                   <Input
                     type="number"
@@ -249,38 +268,38 @@ export default function PatientForm({ onSuccess, t }) {
                     value={form.notifyValue}
                     onChange={(e) => setForm((p) => ({ ...p, notifyValue: e.target.value }))}
                     required
-                    className="input-aruba w-20"
+                    className="input-aruba w-20 h-10 sm:h-11"
                   />
-                  <span className="text-sm text-muted-foreground">minuto(s) después de guardar</span>
+                  <span className="text-xs sm:text-sm text-muted-foreground">{tHelper(dict, "reminderMinutesAfter")}</span>
                 </div>
               </div>
             ) : (
-              <div className="space-y-2 md:col-span-2">
-                <Label className="text-sm font-medium">Fecha y hora de la cita</Label>
+              <div className="space-y-1.5 sm:space-y-2 sm:col-span-2">
+                <Label className="text-xs sm:text-sm font-medium">{tHelper(dict, "appointmentDateTime")}</Label>
                 <Input
                   type="datetime-local"
                   value={form.appointmentDateTime}
                   onChange={(e) => setForm((p) => ({ ...p, appointmentDateTime: e.target.value }))}
                   required
-                  className="input-aruba max-w-md"
+                  className="input-aruba max-w-xs sm:max-w-md h-10 sm:h-11"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Recordatorio WhatsApp 6 horas antes de esta fecha y hora
+                  {tHelper(dict, "reminderInfo")}
                 </p>
               </div>
             )}
 
-            <div className="md:col-span-2 lg:col-span-3 flex justify-end">
-              <Button type="submit" disabled={saving} className="btn-aruba gap-2 min-w-[160px]">
+            <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
+              <Button type="submit" disabled={saving} className="btn-aruba gap-2 min-w-[140px] sm:min-w-[160px] h-10 sm:h-11 text-sm">
                 {saving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Guardando...
+                    {tHelper(dict, "saving")}
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4" />
-                    {t?.save || "Guardar"}
+                    {tHelper(dict, "save")}
                   </>
                 )}
               </Button>

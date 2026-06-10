@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Stethoscope, Loader2, Shield } from "lucide-react";
+import { t as tHelper } from "@/lib/i18n";
 
-export function LoginForm({ className, action, error, ...props }) {
+export function LoginForm({ className, action, error, dict, ...props }) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (formData) => {
@@ -32,7 +33,7 @@ export function LoginForm({ className, action, error, ...props }) {
             Odonto Reminder
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Sistema de recordatorios para clínicas dentales
+            {dict ? tHelper(dict, "loginSubtitle") : "Sistema de recordatorios para clínicas dentales"}
           </p>
         </div>
       </div>
@@ -44,33 +45,35 @@ export function LoginForm({ className, action, error, ...props }) {
         <CardHeader className="relative pb-4">
           <div className="flex items-center gap-2 mb-2">
             <Shield className="w-5 h-5 text-[var(--aruba-turquoise)]" />
-            <CardTitle className="text-lg">Iniciar sesión</CardTitle>
+            <CardTitle className="text-base sm:text-lg">
+              {dict ? tHelper(dict, "loginTitle") : "Iniciar sesión"}
+            </CardTitle>
           </div>
-          <CardDescription>
-            Ingrese sus credenciales para acceder al panel
+          <CardDescription className="text-xs sm:text-sm">
+            {dict ? tHelper(dict, "loginSubtitle") : "Ingrese sus credenciales"}
           </CardDescription>
         </CardHeader>
 
         <CardContent className="relative">
           <form action={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-medium">
-                Usuario
+              <Label htmlFor="email" className="text-xs sm:text-sm font-medium">
+                {dict ? tHelper(dict, "username") : "Usuario"}
               </Label>
               <Input
                 id="email"
                 name="email"
                 type="text"
-                placeholder="Ingrese su usuario"
+                placeholder={dict ? tHelper(dict, "username") : "Ingrese su usuario"}
                 required
                 disabled={isLoading}
-                className="input-aruba h-11"
+                className="input-aruba h-10 sm:h-11"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-medium">
-                Contraseña
+              <Label htmlFor="password" className="text-xs sm:text-sm font-medium">
+                {dict ? tHelper(dict, "password") : "Contraseña"}
               </Label>
               <Input
                 id="password"
@@ -79,14 +82,14 @@ export function LoginForm({ className, action, error, ...props }) {
                 placeholder="••••••••"
                 required
                 disabled={isLoading}
-                className="input-aruba h-11"
+                className="input-aruba h-10 sm:h-11"
               />
             </div>
 
             {error && (
               <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 animate-scale-in">
                 <p className="text-sm text-rose-600 dark:text-rose-400 text-center">
-                  Credenciales inválidas. Intente nuevamente.
+                  {dict ? tHelper(dict, "loginError") : "Credenciales inválidas. Intente nuevamente."}
                 </p>
               </div>
             )}
@@ -94,15 +97,15 @@ export function LoginForm({ className, action, error, ...props }) {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-11 btn-aruba text-base font-semibold"
+              className="w-full h-10 sm:h-11 btn-aruba text-sm sm:text-base font-semibold"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Ingresando...
+                  {dict ? tHelper(dict, "loggingIn") : "Ingresando..."}
                 </>
               ) : (
-                "Ingresar al sistema"
+                dict ? tHelper(dict, "login") : "Ingresar al sistema"
               )}
             </Button>
           </form>
