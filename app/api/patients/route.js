@@ -29,7 +29,8 @@ export async function GET(request) {
       cursor,
       limit,
       sort: { createdAt: -1 },
-      populate: "patientId name phone tags totalVisits",
+      populate: "patientId",
+      select: "name phone tags totalVisits",
     });
 
     return NextResponse.json({
