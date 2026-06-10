@@ -59,13 +59,16 @@ export default function PatientForm({ onSuccess, dict }) {
 
   const handlePatientSelect = useCallback((patient) => {
     if (patient._id) {
-      // Paciente existente seleccionado — auto-rellenar
-      const code = patient.phone.replace(/\d/g, "").trim();
-      const local = patient.phone.replace(/\D/g, "").slice(-10);
+      // Paciente existente seleccionado — extraer código de país del teléfono
+      const phone = patient.phone;
+      const matchedCountry = COUNTRY_OPTIONS.find((c) => phone.startsWith(c.code));
+      const code = matchedCountry?.code || "+297";
+      const local = phone.replace(code, "");
+
       setForm((prev) => ({
         ...prev,
         patientName: patient.name,
-        countryCode: code || prev.countryCode,
+        countryCode: code,
         localPhone: local,
         language: patient.language || prev.language,
       }));
