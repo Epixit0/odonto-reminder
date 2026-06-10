@@ -79,9 +79,6 @@ export default function PatientTable({ visits, loading, searchQuery, filterStatu
                     {dict ? tHelper(dict, "contact") : "Contacto"}
                   </div>
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider hidden md:table-cell">
-                  {dict ? tHelper(dict, "treatment") : "Tratamiento"}
-                </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <div className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />

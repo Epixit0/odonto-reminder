@@ -45,10 +45,6 @@ export default function MobilePatientCard({ visit, dateFormatter, t, lang }) {
             <Phone className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{visit.patientPhone}</span>
           </div>
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="text-xs">🦷</span>
-            <span className="truncate">{visit.treatmentType}</span>
-          </div>
           <div className="flex items-center gap-1.5 text-muted-foreground col-span-2">
             <Calendar className="w-3.5 h-3.5 shrink-0" />
             <span>{dateFormatter?.format ? dateFormatter.format(new Date(visit.followUpDate)) : new Date(visit.followUpDate).toLocaleDateString()}</span>

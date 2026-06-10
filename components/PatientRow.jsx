@@ -79,9 +79,6 @@ export default function PatientRow({ visit, dateFormatter, dict, onPatientClick,
       <td className="px-3 sm:px-4 py-3 sm:py-3.5 hidden sm:table-cell">
         <div className="text-sm">{visit.patientPhone}</div>
       </td>
-      <td className="px-3 sm:px-4 py-3 sm:py-3.5 hidden md:table-cell">
-        <div className="text-sm truncate max-w-[120px]">{visit.treatmentType}</div>
-      </td>
       <td className="px-3 sm:px-4 py-3 sm:py-3.5">
         <div className="text-xs sm:text-sm font-medium">
           {dateFormatter?.format ? dateFormatter.format(new Date(visit.followUpDate)) : new Date(visit.followUpDate).toLocaleDateString()}

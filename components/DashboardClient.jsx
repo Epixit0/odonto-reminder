@@ -17,7 +17,6 @@ import PatientTable from "@/components/dashboard/PatientTable";
 import CalendarView from "@/components/dashboard/CalendarView";
 import PatientSheet from "@/components/dashboard/PatientSheet";
 import Pagination from "@/components/dashboard/Pagination";
-import AnalyticsCards from "@/components/dashboard/AnalyticsCards";
 import { StaggerContainer, StaggerItem } from "@/components/dashboard/StaggerContainer";
 import ThemeToggle from "@/components/ThemeToggle";
 import Link from "next/link";
@@ -272,8 +271,6 @@ export default function DashboardClient({ username, initialVisits = [] }) {
             </StaggerItem>
           ))}
         </StaggerContainer>
-
-        {visits.length > 0 && <AnalyticsCards visits={visits} dict={dict} />}
 
         <PatientForm onSuccess={handleRefresh} dict={dict} />
 

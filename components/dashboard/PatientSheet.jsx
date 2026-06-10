@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, Phone, DollarSign, FileText, ExternalLink, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Phone, DollarSign, FileText, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { t as tHelper } from "@/lib/i18n";
 
