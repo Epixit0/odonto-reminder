@@ -18,13 +18,20 @@ export default function PatientSheet({ patientId, open, onOpenChange, dict }) {
   useEffect(() => {
     if (!open || !patientId) return;
     setLoading(true);
+    setData(null);
     fetch(`/api/patients/${patientId}/detail`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Not found");
+        return r.json();
+      })
       .then((d) => {
         setData(d);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        setData(null);
+        setLoading(false);
+      });
   }, [open, patientId]);
 
   return (

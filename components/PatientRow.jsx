@@ -67,7 +67,7 @@ export default function PatientRow({ visit, dateFormatter, dict, onPatientClick,
     <tr className="hover:bg-muted/30 transition-all duration-200 cursor-pointer">
       <td className="px-3 sm:px-4 py-3 sm:py-3.5">
         <button
-          onClick={() => onPatientClick?.(visit.patientId?._id || visit.patientId || visit._id)}
+          onClick={() => onPatientClick?.(visit.patientId?._id || visit.patientId)}
           className="font-medium text-[var(--aruba-turquoise)] hover:text-[var(--aruba-turquoise-dark)] transition-colors text-sm sm:text-base text-left"
         >
           {visit.patientName}
